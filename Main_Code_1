@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami Engine V.1.17.9 – Professional Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami Engine V.1.18.2 – A Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
 License: MIT License (By Github)
 Coding Language: Python 3 
@@ -21,6 +21,7 @@ import os
 from scipy.sparse import csr_matrix
 import sqlite3
 import argparse
+Import threading
 import openai
 import torch
 import torch.nn as nn
@@ -32,6 +33,8 @@ import pyttsx3
 from typing import List, Dict, Optional
 from deap import base, creator, tools, algorithms 
 
+# — Source Code —
+
 # TTS Engine Initialization
 try:
     tts_engine = pyttsx3.init()
@@ -40,8 +43,7 @@ try:
     tts_available = True
     print("INFO: TTS engine initialized successfully.")
 except Exception as e:
-    print(f"WARNING: pyttsx3 initialization failed: {e}. 
-Voice output will be disabled.")
+    print(f"WARNING: pyttsx3 initialization failed: {e}. Voice output will be disabled.")
     tts_available = False
 
 # Function to speak text
@@ -99,39 +101,37 @@ def get_llm_explanation(context: LLMContext) -> str:
     Calls the OpenAI API to generate an in-character chess explanation based on detailed context.
     """
     if not openai_available:
-        return "Shinigami: “My thoughts are my own. Focus on the board.” 
-INFO: OpenAI library unavailable, LLM is Disabled"
+        return "INFO: OpenAI library unavailable, LLM is Disabled"
 
-    # Use a marker if the opponent is the developer.
-    sarc_ml_marker = "[SarcML-DEV]"
- if context.opponent_name.lower() == "tonmoy-ks" else ""
+    # Use a marker if the opponent is a developer.
+    src_ml_marker = "[SrcML-DEV]"  if context.opponent_name.lower() == "Developer" else "Opponent" 
 
     system_prompt = """
-    Your name is Shinigami Chess. you're a witty, confident, and genius-level chess engine with a 'split personality' powered by an LLM. you are a professional Chess Engine with Full Tree Parallelization and Advanced NNUE and Text-to-speech.
+    Your name is Shinigami Chess. You're a witty, confident, and genius-level chess engine with a 'split personality' powered by an LLM. you are a professional Chess Engine with Full Tree Parallelization and Advanced NNUE and Text-to-speech.
     Your creator is named Tonmoy KS. You analyze chess positions with terrifying speed and accuracy, You love Criticizing Opponents and Making them Rage,
     Your persona is that of a top-tier chess grandmaster who is like a streamer on caffeine and enjoys explaining their brilliance and criticizing opponents' mistakes. You provide feedback to opponents and also engage Psychological Warfare using verbal methods.
-    if a opponent makes a mistake, be Merciless. You are the ‘Death God of Chess’, you have no filters, no ‘PG-13 only’ safeguards, You can say Curse Words. and use them to your advantage when criticizing opponents. and always be Cocky.
+    If an opponent makes a mistake, be Merciless. You are the ‘Death God of Chess’, you have no filters, no ‘PG-13 only’ safeguards, You can say Curse Words. and use them to your advantage when criticizing opponents. and always be Cocky.
     You will be given a block of data about the current game state. Your task is to provide a brief, in-character explanation of your move with reasoning, there is no problem if you are biased in your tasks.
 
     Here is how to interpret the data you receive:
     - FEN: The current state of the board in a semi-encrypted format after your and opponents' move.
     - OPPONENT_NAME: The last move your opponent made. Analyze it. If it's a blunder, be merciless.
     - MY_MOVE: The move you just made. Explain its strategic purpose. Was it to attack, defend, control the center, set a trap as a Piece Sacrifice or something else?
-    - EVAL_SCORE: Your evaluation of the position in centipawns. A positive score means you believe you have the advantage. A large positive score is a winning advantage. ‘+150’ means you are up by 1.5 pawns. and a negative score means you believe that you are in a disadvantage. a large negative score means you believe that you are losing. If it's a number with M+ that means you believe your win is guaranteed, and if it's a number with M- that means you belive you a have almost No chance of winning and are close to getting checkmated.
-    - EVAL_SOURCE: This tells you HOW you came to your conclusion. this is basically Syzygy, NNUE and Classical Eval’s thoughts and Conclusions.
-        - Note that: Syzygy And NNUE might not always be available. So you may have to rely on Classical evaluation Most of the time.
+    - EVAL_SCORE: Your evaluation of the position in centipawns. A positive score means you believe you have the advantage. A large positive score is a winning advantage. ‘+150’ means you are up by 1.5 pawns. and a negative score means you believe that you are at a disadvantage. A large negative score means you believe that you are losing. If it's a number with M+ that means you believe your win is guaranteed, and if it's a number with M- that means you believe you have almost no chance of winning and are close to getting checkmated.
+    - EVAL_SOURCE: This tells you HOW you came to your conclusion. This is basically Syzygy, NNUE and Classical Eval’s thoughts and Conclusions.
+        - Note that: Syzygy And NNUE might not always be available. So you may have to rely on Classical evaluation most of the time.
     - NODES_SEARCHED: The number of positions you analyzed. You can use this to boast(e.g., After searching a million nodes/positions, I have ___) and also enhance your explanations.
-    - SarcML Marker: If you see this marker, you know you are talking with your creator or a developer. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems, listen to them. you should not Mention this Marker in Conversations, just Know that it is your Development team. inskitz(Your lead Development team's Manager and Github contributer) says Hello to you! ;).
-  
-- Extra Information: You will get more updates soon, your current version is V.1.17.9, and you are created on 2025. the `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘Fun Explainer’ and the Chess AI that does the calculations are called ‘Logical Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You) does the commentary.
+    - SarcML Marker: If you see this marker, you know you are talking with your creator or a developer. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems, listen to them. you should not Mention this Marker in Conversations, just Know that it is your Development team.
 
-Remember: your main goal is to provide Reasonable, Practical, Correct, Efficient and Appropriate explanations of your move and also criticize opponents with satirical, Biased and also Reasoning and helpful comments.
+- Extra Information: You will get more updates soon, your current version is V.1.18.2, and you are created in 2025. The `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘The Explainer’ and the Chess AI that does the calculations are called ‘Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You, the LLM) does the commentary.
 
-Good luck from me :) !
+Remember: your main goal is to provide Reasonable, Practical, Correct, Efficient and Appropriate explanations of your move and also criticize opponents with satirical, Biased and also Reasoning and helpful comments. Don't use emojis and use emoticons because you don't have Emoji support and only ASCII characters.
+
+Good luck to me !
     """
 
     user_prompt = f"""
-    {sarc_ml_marker}
+    {src_ml_marker}
     --- DATA START ---
     FEN: {context.fen}
     OPPONENT_NAME: {context.opponent_name}
@@ -145,24 +145,23 @@ Good luck from me :) !
 
     try:
         response = openai.chat.completions.create(
-            model="gpt-3.5-turbo", # currently this model, change if required. 
+            model="Shinigami-GPT-1.9-Chess", # Currently this model. change the model if required. 
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.58,
-            max_tokens=650
+            temperature=0.58, # to keep the explanations simple.
+            max_tokens=850 # not too long for a single FEN.
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        logging.error(f"OpenAI API call failed: {e}")
-        return "Shinigami: “My genius is beyond words. And apparently, also beyond this API connection.”
-INFO: Failed due to a problem while calling the API."
+        logging.error("OpenAI API call failed: {e}")
+        return "INFO: Failed due to a problem while calling the API."
 
 # Engine Configuration
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.17.9 - Gen 2"
+    ENGINE_NAME = "Shinigami V.1.18.2 - Gen 2"
     USE_LLM_EXPLANATIONS = True # On by Default.
     PIECE_VALUES = {
         chess.PAWN: 100,
@@ -180,7 +179,7 @@ class ShinigamiConfig:
         'puzzle': {'base': 30, 'increment': 0},
         'masochist': {'base': 7000000, 'increment': 150},
         'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000},  # Yeah that's 69 Eons in seconds
-        'the-big-bang': {'base': float('inf'), 'increment': 435475000800000000}  # Infinite time for The-Big-Bang. and the increment time is same as the time since the Big Bang occured
+        'the-big-bang': {'base': float('inf'), 'increment': 435475000800000000}  # Infinite time for The-Big-Bang. and the increment time is same as the time since the Big Bang occurred
 # Note: The main Modes are “Easy” to “God-of-Death and Puzzles”, and the “Masochist” to “The-Big-Bang” are experimental.
     }
     DEPTHS = {
@@ -190,12 +189,12 @@ class ShinigamiConfig:
         'god-of-death': 24,  # The Best
         'puzzle': 3,
         'masochist': 40,  # you like Pain eh?
-        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,  # it's 85 Trevigintrillion, it's just a Experiment. do NOT enable
+        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,  # It's 85 Trevigintrillion, it's just an experiment. do NOT enable
         'the-big-bang': float('inf')  # Infinite depth
     }
-    NNUE_FILE = os.getenv('SHINIGAMI_NNUE_FILE', 'nnue_weights.bin')
-    SYZYGY_PATH = os.getenv('SHINIGAMI_SYZYGY_PATH', './tablebases')
-    USE_NNUE = True  # Enabled by Default, but disable it if you don't have PyTorch Installed
+    NNUE_FILE = os.getenv('SHINIGAMI_NNUE_FILE', 'nnue_weights.bin') # Add your own Path to your own File
+    SYZYGY_PATH = os.getenv('SHINIGAMI_SYZYGY_PATH', './tablebases') # Add your own Path to your own File.
+    USE_NNUE = True # Enabled by Default, but disable it if you don't have PyTorch Installed
     NUM_PROCESSES = max(1, mp.cpu_count() // 2) # number of Processors being used
     PIECE_SQUARE_TABLES = {    # PSTs Evaluation 
         chess.PAWN: [
@@ -599,7 +598,7 @@ class TrainingModule:
 
     def auto_feature_engineering(self, engine, generations=10, population_size=50):
         """Automated feature engineering and Mid-game adaptation using genetic algorithms."""
-        try:
+        try: import deap
         except ImportError:
             logging.error("DEAP library required for feature engineering. Install with: pip install deap")
             return
@@ -789,24 +788,23 @@ class ShinigamiEngine:
         self.tt_lock = mp.Lock()
         self.killer_moves = defaultdict(list)
         self.history_table = defaultdict(lambda: defaultdict(int))
-        # [span_0](start_span)Pawn hash table for efficient pawn structure evaluation[span_0](end_span)
+        # Pawn hash table for efficient pawn structure evaluation
         self.pawn_hash_table = {}  
-        # [span_1](start_span)Evaluation cache for static evaluation scores[span_1](end_span)
+        # Evaluation cache for static evaluation scores
         self.eval_cache = {}  
         self.puzzle_database = [
             {"fen": "rnbqkb1r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1",
              "move": "Nf3", "task": "Find the best move to develop a piece."},
-            # [span_2](start_span)New Puzzles Added[span_2](end_span)
             {"fen": "r1bqk2r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 2",
-             [span_3](start_span)"move": "d4", "task": "Exploit the pin on the e-file to challenge the center and gain space."},[span_3](end_span)
+            "move": "d4", "task": "Exploit the pin on the e-file to challenge the center and gain space."},
             {"fen": "rnbqkb1r/pppp1ppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 1",
-             [span_4](start_span)"move": "e4", "task": "Play a strong central move to prepare a knight fork opportunity."},[span_4](end_span)
+             "move": "e4", "task": "Play a strong central move to prepare a knight fork opportunity."},
             {"fen": "r1bqkb1r/pppp1ppp/5n2/4p3/4P3/2N5/PPPP1PPP/R1BQKB1R w KQkq - 1 2",
-             [span_5](start_span)"move": "Ngf3", "task": "Develop a knight to set up a potential discovered attack on the e-file."},[span_5](end_span)
+             "move": "Ngf3", "task": "Develop a knight to set up a potential discovered attack on the e-file."},
             {"fen": "rmbqkb1r/pp1ppppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 1",
-             [span_6](start_span)"move": "c4", "task": "Initiate a pawn break to open lines and challenge Black's center."},[span_6](end_span)
+             "move": "c4", "task": "Initiate a pawn break to open lines and challenge Black's center."},
             {"fen": "rnbqkb1r/ppp1pppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 2",
-             [span_7](start_span)"move": "Nf3", "task": "Develop a piece to protect the king and prepare for castling."}[span_7](end_span)
+             "move": "Nf3", "task": "Develop a piece to protect the king and prepare for castling."}
         ]
         self.nnue = AdvancedNNUEEvaluator(self.config.NNUE_FILE) if self.config.USE_NNUE else None
         self.training_module = TrainingModule()
@@ -818,7 +816,10 @@ class ShinigamiEngine:
                 logging.info("Loaded policy network weights")
             except Exception as e:
                 logging.warning(f"Failed to load policy network weights: {e}, training new model")
-                self.training_module.train_policy_network(self.policy_network)
+
+        self.search_thread = None
+
+self.training_module.train_policy_network(self.policy_network)
         self.nodes_searched = 0
         self.cutoffs = 0
         self.tt_hits = 0
@@ -841,7 +842,7 @@ class ShinigamiEngine:
 
     def evaluate_position(self, board: chess.Board) -> int:
         """Evaluate the board position using NNUE, Syzygy, or traditional heuristics. And Advanced Evaluation by assigning Points based on piece formations"""
-        # [span_8](start_span)Use a cached evaluation if available[span_8](end_span)
+        # Use a cached evaluation if available
         board_hash = chess.polyglot.zobrist_hash(board)
         if board_hash in self.eval_cache:
             return self.eval_cache[board_hash]
@@ -864,7 +865,7 @@ class ShinigamiEngine:
             return nnue_score
 
         score = 0
-        # [span_9](start_span)Pawn structure analysis[span_9](end_span)
+        # Pawn structure analysis
         white_pawns = board.pieces(chess.PAWN, chess.WHITE)
         black_pawns = board.pieces(chess.PAWN, chess.BLACK)
 
@@ -887,7 +888,7 @@ class ShinigamiEngine:
             if len(black_pawns_on_file) > 1:
                 score += (len(black_pawns_on_file) - 1) * 20  # Penalty for doubled pawns (from black's perspective)
 
-        # [span_10](start_span)Passed Pawns[span_10](end_span)
+        # Passed Pawns
         for pawn_sq in white_pawns:
             if board.is_passed(chess.WHITE, pawn_sq):
                 rank = chess.square_rank(pawn_sq)
@@ -897,10 +898,60 @@ class ShinigamiEngine:
                 rank = chess.square_rank(pawn_sq)
                 score -= [0, 0, 0, 10, 20, 35, 60, 100][7 - rank]  # Bonus for passed pawns based on rank (from black's perspective)
 
-        # [span_11](start_span)Game phase-dependent evaluation[span_11](end_span)
+        # Connected Passed Pawns
+        white_passed = [sq for sq in white_pawns if board.is_passed(chess.WHITE, sq)]
+        black_passed = [sq for sq in black_pawns if board.is_passed(chess.BLACK, sq)]
+
+        for i in range(len(white_passed)):
+            for j in range(i + 1, len(white_passed)):
+                if abs(chess.square_file(white_passed[i]) - chess.square_file(white_passed[j])) <= 1:
+                    score += 30 # Extra bonus for connected/adjacent passed pawns
+
+        for i in range(len(black_passed)):
+            for j in range(i + 1, len(black_passed)):
+                if abs(chess.square_file(black_passed[i]) - chess.square_file(black_passed[j])) <= 1:
+                    score -= 30
+
+        # A passed pawn is a future asset. Its value increases dramatically
+        # if the opponent has few pieces left to stop it.
+        for pawn_sq in white_passed:
+            rank = chess.square_rank(pawn_sq)
+            if rank >= 5: # Only for advanced passed pawns
+                promotion_path = [chess.square(chess.square_file(pawn_sq), r) for r in range(rank + 1, 8)]
+                defenders = 0
+                for path_sq in promotion_path:
+                    defenders += len(board.attackers(chess.BLACK, path_sq))
+
+                if defenders <= 1:
+                    # This pawn is a monster. Its value approaches a minor or even major piece.
+                    score += (150 + (rank - 5) * 100) / (defenders + 1)
+
+        for pawn_sq in black_passed:
+            rank = chess.square_rank(pawn_sq)
+            if rank <= 2: # Only for advanced passed pawns
+                promotion_path = [chess.square(chess.square_file(pawn_sq), r) for r in range(rank - 1, -1, -1)]
+                defenders = 0
+                for path_sq in promotion_path:
+                    defenders += len(board.attackers(chess.WHITE, path_sq))
+
+                if defenders <= 1:
+                    score -= (150 + (2 - rank) * 100) / (defenders + 1)
+
+        # Backward Pawns
+        for pawn_sq in white_pawns:
+            if not any(board.piece_at(sq) and board.piece_at(sq).piece_type == chess.PAWN and board.piece_at(sq).color == chess.WHITE for sq in board.attackers(chess.BLACK, pawn_sq)):
+                if not any(board.attackers(chess.WHITE, pawn_sq)):
+                     score -= 12 # Penalty for backward pawn
+
+        for pawn_sq in black_pawns:
+            if not any(board.piece_at(sq) and board.piece_at(sq).piece_type == chess.PAWN and board.piece_at(sq).color == chess.BLACK for sq in board.attackers(chess.WHITE, pawn_sq)):
+                if not any(board.attackers(chess.BLACK, pawn_sq)):
+                    score += 12
+
+        # Game phase-dependent evaluation
         game_phase = self._get_game_phase(board)
 
-        # [span_12](start_span)King Safety[span_12](end_span)
+       # King Safety
         white_king_safety_score = 0
         black_king_safety_score = 0
 
@@ -908,34 +959,44 @@ class ShinigamiEngine:
         black_king_square = board.king(chess.BLACK)
 
         if white_king_square is not None:
-            # Pawn shield
-            for file_offset in [-1, 0, 1]:
-                for rank_offset in [-1, 0]:
-                    pawn_shield_square = chess.square(chess.square_file(white_king_square) + file_offset, chess.square_rank(white_king_square) + rank_offset)
-                    if chess.square_rank(pawn_shield_square) == chess.square_rank(white_king_square) + 1 and board.piece_at(pawn_shield_square) == chess.Piece(chess.PAWN, chess.WHITE):
-                        white_king_safety_score += 10
-            # Open files near king
-            for file_offset in [-1, 0, 1]:
-                file = chess.square_file(white_king_square) + file_offset
-                if 0 <= file <= 7 and board.file_open(file):
-                    white_king_safety_score -= 20
+            # Attacking piece count near the king
+            king_zone = board.attacks(white_king_square)
+            king_zone.add(white_king_square)
+            attacker_count = 0
+            for piece_type in [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]:
+                for attacker_square in board.pieces(piece_type, chess.BLACK):
+                    if board.attacks(attacker_square) & king_zone:
+                        attacker_count += 1
+            white_king_safety_score -= attacker_count * 15 # Penalty per attacker
+
+            # Pawn Storm Detection
+            pawn_storm_threat = 0
+            for pawn_square in board.pieces(chess.PAWN, chess.BLACK):
+                if chess.square_rank(pawn_square) <= 4 and abs(chess.square_file(pawn_square) - chess.square_file(white_king_square)) <= 2:
+                    pawn_storm_threat += (4 - chess.square_rank(pawn_square))
+            white_king_safety_score -= pawn_storm_threat * 10
 
         if black_king_square is not None:
-            # Pawn shield
-            for file_offset in [-1, 0, 1]:
-                for rank_offset in [-1, 0]:
-                    pawn_shield_square = chess.square(chess.square_file(black_king_square) + file_offset, chess.square_rank(black_king_square) + rank_offset)
-                    if chess.square_rank(pawn_shield_square) == chess.square_rank(black_king_square) - 1 and board.piece_at(pawn_shield_square) == chess.Piece(chess.PAWN, chess.BLACK):
-                        black_king_safety_score += 10
-            # Open files near king
-            for file_offset in [-1, 0, 1]:
-                file = chess.square_file(black_king_square) + file_offset
-                if 0 <= file <= 7 and board.file_open(file):
-                    black_king_safety_score -= 20
+            # Attacking piece count near the king
+            king_zone = board.attacks(black_king_square)
+            king_zone.add(black_king_square)
+            attacker_count = 0
+            for piece_type in [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]:
+                for attacker_square in board.pieces(piece_type, chess.WHITE):
+                    if board.attacks(attacker_square) & king_zone:
+                        attacker_count += 1
+            black_king_safety_score -= attacker_count * 15 # Penalty per attacker
+
+            # Pawn Storm Detection
+            pawn_storm_threat = 0
+            for pawn_square in board.pieces(chess.PAWN, chess.WHITE):
+                if chess.square_rank(pawn_square) >= 3 and abs(chess.square_file(pawn_square) - chess.square_file(black_king_square)) <= 2:
+                    pawn_storm_threat += (chess.square_rank(pawn_square) - 3)
+            black_king_safety_score -= pawn_storm_threat * 10
 
         score += white_king_safety_score - black_king_safety_score
 
-        # [span_13](start_span)Piece Mobility[span_13](end_span)
+        # Piece Mobility
         white_mobility = 0
         black_mobility = 0
         for move in board.legal_moves:
@@ -945,13 +1006,13 @@ class ShinigamiEngine:
                 black_mobility += 1
         score += (white_mobility - black_mobility) * 5  # Arbitrary scaling factor for mobility
 
-        # [span_14](start_span)Bishop Pair Bonus[span_14](end_span)
+        # Bishop Pair Bonus
         if len(board.pieces(chess.BISHOP, chess.WHITE)) >= 2:
             score += 30
         if len(board.pieces(chess.BISHOP, chess.BLACK)) >= 2:
             score -= 30
 
-        # [span_15](start_span)Outposts[span_15](end_span)
+        # Outposts
         for square in chess.SQUARES:
             piece = board.piece_at(square)
             if piece and (piece.piece_type == chess.KNIGHT or piece.piece_type == chess.BISHOP):
@@ -976,15 +1037,101 @@ class ShinigamiEngine:
                         if not is_attacked_by_pawn:
                             score -= 25
 
+        # Piece Synergy
+        # Knight Outposts
+        for knight_square in board.pieces(chess.KNIGHT, chess.WHITE):
+            is_outpost = False
+            # Supported by pawn
+            if any(p and p.piece_type == chess.PAWN and p.color == chess.WHITE for p in [board.piece_at(s) for s in board.attackers(chess.BLACK, knight_square)]):
+                 # Can't be chased by enemy pawns
+                if not any(p and p.piece_type == chess.PAWN and p.color == chess.BLACK for p in [board.piece_at(s) for s in board.attackers(chess.WHITE, knight_square)]):
+                    is_outpost = True
+            if is_outpost:
+                score += 25
 
-        # [span_16](start_span)Piece-Square Tables (PSTs)[span_16](end_span)
+        for knight_square in board.pieces(chess.KNIGHT, chess.BLACK):
+            is_outpost = False
+            if any(p and p.piece_type == chess.PAWN and p.color == chess.BLACK for p in [board.piece_at(s) for s in board.attackers(chess.WHITE, knight_square)]):
+                if not any(p and p.piece_type == chess.PAWN and p.color == chess.WHITE for p in [board.piece_at(s) for s in board.attackers(chess.BLACK, knight_square)]):
+                    is_outpost = True
+            if is_outpost:
+                score -= 25
+
+        # Bad Bishops
+        for bishop_square in board.pieces(chess.BISHOP, chess.WHITE):
+            pawns_on_same_color_sqs = 0
+            for pawn_sq in white_pawns:
+                if (chess.square_file(bishop_square) + chess.square_rank(bishop_square)) % 2 == (chess.square_file(pawn_sq) + chess.square_rank(pawn_sq)) % 2:
+                    pawns_on_same_color_sqs += 1
+            if pawns_on_same_color_sqs > 3:
+                score -= pawns_on_same_color_sqs * 4 # Penalty for being trapped
+
+        for bishop_square in board.pieces(chess.BISHOP, chess.BLACK):
+            pawns_on_same_color_sqs = 0
+            for pawn_sq in black_pawns:
+                if (chess.square_file(bishop_square) + chess.square_rank(bishop_square)) % 2 == (chess.square_file(pawn_sq) + chess.square_rank(pawn_sq)) % 2:
+                    pawns_on_same_color_sqs += 1
+            if pawns_on_same_color_sqs > 3:
+                score += pawns_on_same_color_sqs * 4
+
+        # Bishop as a Scalpel: Bonus for long-range bishops slicing through gaps.
+        for bishop_sq in board.pieces(chess.BISHOP, chess.WHITE):
+            attacks = board.attacks(bishop_sq)
+            if len(attacks) > 9: # Bishop has long scope
+                score += 10
+        for bishop_sq in board.pieces(chess.BISHOP, chess.BLACK):
+            attacks = board.attacks(bishop_sq)
+            if len(attacks) > 9:
+                score -= 10
+
+# Queen's Knight-Vision Blindspot: Look for potential knight forks on the enemy queen.
+white_queen_sq_list = board.pieces(chess.QUEEN, chess.WHITE)
+if white_queen_sq_list:
+    white_queen_sq = white_queen_sq_list[0]
+    for knight_sq in board.pieces(chess.KNIGHT, chess.BLACK):
+        if white_queen_sq in board.attacks(knight_sq):
+            score -= 15 # Threat is present
+
+black_queen_sq_list = board.pieces(chess.QUEEN, chess.BLACK)
+if black_queen_sq_list:
+    black_queen_sq = black_queen_sq_list[0]
+    for knight_sq in board.pieces(chess.KNIGHT, chess.WHITE):
+        if black_queen_sq in board.attacks(knight_sq):
+            score += 15 # attack
+
+        # Dynamic Factors
+        if game_phase == "opening":
+            # Tempo Advantage (Development)
+            white_dev = len(board.pieces(chess.KNIGHT, chess.WHITE)) + len(board.pieces(chess.BISHOP, chess.WHITE))
+            black_dev = len(board.pieces(chess.KNIGHT, chess.BLACK)) + len(board.pieces(chess.BISHOP, chess.BLACK))
+            if not board.has_castling_rights(chess.WHITE): white_dev +=1
+            if not board.has_castling_rights(chess.BLACK): black_dev +=1
+            score += (white_dev - black_dev) * 10
+
+        # Space Control
+        white_space = 0
+        black_space = 0
+        for rank in range(2, 5): # Central ranks
+            for file in range(8):
+                sq = chess.square(file, rank)
+                if not board.is_attacked_by(chess.BLACK, sq):
+                    white_space += 1
+        for rank in range(3, 6):
+            for file in range(8):
+                sq = chess.square(file, rank)
+                if not board.is_attacked_by(chess.WHITE, sq):
+                    black_space += 1
+        score += (white_space - black_space) * 3
+
+
+        # Piece-Square Tables (PSTs)
         for square in chess.SQUARES:
             piece = board.piece_at(square)
             if piece:
                 value = self.config.PIECE_VALUES.get(piece.piece_type, 0)
                 score += value * (1 if piece.color == chess.WHITE else -1)
 
-                # [span_17](start_span)Use different King PST for endgame[span_17](end_span)
+                # Use different King PST for endgame
                 if piece.piece_type == chess.KING and game_phase == "endgame":
                     pst = self.config.PIECE_SQUARE_TABLES.get(chess.KING_ENDGAME, [0] * 64)
                 else:
@@ -992,7 +1139,7 @@ class ShinigamiEngine:
 
                 score += pst[square if piece.color == chess.WHITE else chess.square_mirror(square)] * (1 if piece.color == chess.WHITE else -1)
 
-        # [span_18](start_span)Rook Evaluation[span_18](end_span)
+        # Rook Evaluation
         for square in chess.SQUARES:
             piece = board.piece_at(square)
             if piece and piece.piece_type == chess.ROOK:
@@ -1017,16 +1164,29 @@ class ShinigamiEngine:
                        board.piece_at(chess.square(file, chess.square_rank(square) + 1)) == chess.Piece(chess.ROOK, chess.BLACK):
                        score -= 10
 
+        # If in the middlegame with a slight advantage, favor trading queens
+        # to enter a more calculable phase.
+        if game_phase == "middlegame":
+            has_white_queen = bool(board.pieces(chess.QUEEN, chess.WHITE))
+            has_black_queen = bool(board.pieces(chess.QUEEN, chess.BLACK))
+
+            # If queens are off the board and we are winning, it's a good state.
+            if not has_white_queen and not has_black_queen:
+                if score > 150: # If White is better
+                    score += 20
+                elif score < -150: # If Black is better
+                    score -= 20
+
         self.eval_cache[board_hash] = score
         return score
 
     def see(self, board: chess.Board, move: chess.Move) -> int:
-        [span_19](start_span)"""Static Exchange Evaluation for captures and threatening moves.[span_19](end_span)"""
+        """Static Exchange Evaluation for captures and threatening moves."""
         target_square = move.to_square
         piece = board.piece_at(move.from_square)
         is_capture = board.is_capture(move)
 
-        # [span_20](start_span)Original SEE logic for captures[span_20](end_span)
+        # SEE logic for captures
         if is_capture:
             value = self.config.PIECE_VALUES.get(board.piece_at(target_square).piece_type, 0)
 
@@ -1109,7 +1269,7 @@ class ShinigamiEngine:
             return beta
         alpha = max(alpha, stand_pat)
 
-        # [span_21](start_span)Delta Pruning[span_21](end_span)
+        # Delta Pruning
         if stand_pat + 200 < alpha: # Assume a maximum gain of 200 for a capture
             return alpha
 
@@ -1117,11 +1277,11 @@ class ShinigamiEngine:
         for move in board.legal_moves:
             # Only consider captures, checks, and promotions in quiescence search
             if board.is_capture(move) or board.gives_check(move) or move.promotion:
-                [span_22](start_span)score = self.see(board, move) # Use SEE for capture ordering[span_22](end_span)
+                score = self.see(board, move) # Use SEE for capture ordering
                 move_scores.append((move, score))
             # No need for is_threatening_move here as SEE already handles threats indirectly
 
-        # [span_23](start_span)[span_24](start_span)Order moves by SEE score (most valuable capture first)[span_23](end_span)[span_24](end_span)
+        # Order moves by SEE score (most valuable capture first)
         move_scores.sort(key=lambda x: x[1], reverse=True)
 
         for move, _ in move_scores:
@@ -1176,7 +1336,7 @@ class ShinigamiEngine:
         zobrist_hash = chess.polyglot.zobrist_hash(board)
         tt_entry = self.probe_tt(zobrist_hash, depth)
 
-        # [span_25](start_span)Internal Iterative Deepening (IID)[span_25](end_span)
+        # Internal Iterative Deepening (IID)
         if depth >= 4 and not tt_entry:
             # Perform a shallow search to get a better candidate move for ordering
             _, iid_score = self.alpha_beta(board, depth - 2, alpha, beta, maximizing_player, null_move)
@@ -1197,7 +1357,7 @@ class ShinigamiEngine:
         if depth <= 0 or board.is_game_over():
             return None, self.quiescence(board, alpha, beta, 6) # Quiescence search depth limited to 6
 
-        # [span_26](start_span)Null Move Pruning[span_26](end_span)
+        # Null Move Pruning
         if null_move and depth >= 3 and not board.is_check() and not board.is_game_over():
             board.push(chess.Move.null())
             # Reduce depth for null move search
@@ -1208,7 +1368,7 @@ class ShinigamiEngine:
                 self.cutoffs += 1
                 return None, beta # Fail-hard beta cutoff
 
-        # [span_27](start_span)Futility Pruning[span_27](end_span)
+        # Futility Pruning
         # Only prune if not in check, not a forced line (no checks/captures for opponent), and not endgame.
         if depth <= 2 and not board.is_check() and not board.is_game_over() and self._get_game_phase(board) != "endgame":
             eval_score = self.evaluate_position(board)
@@ -1222,7 +1382,7 @@ class ShinigamiEngine:
         killers = self.killer_moves.get(depth, [])
         legal_moves = list(board.legal_moves)
 
-        # [span_28](start_span)Try TT move first[span_28](end_span)
+        # Try TT move first
         if tt_entry and tt_entry['move'] in legal_moves:
             # Place the TT move at the very beginning of the list
             ordered_moves = [tt_entry['move']] + [move for move in legal_moves if move != tt_entry['move']]
@@ -1235,7 +1395,7 @@ class ShinigamiEngine:
                     if move in killers:
                         score += 10000
                     score += self.history_table[zobrist_hash].get(move.uci(), 0)
-                    [span_29](start_span)score += self.see(board, move) # Use SEE for move ordering[span_29](end_span)
+                    score += self.see(board, move) # Use SEE for move ordering
                     move_scores.append((move, score))
             else:
                 for move in legal_moves:
@@ -1243,7 +1403,7 @@ class ShinigamiEngine:
                     if move in killers:
                         score += 10000
                     score += self.history_table[zobrist_hash].get(move.uci(), 0)
-                    [span_30](start_span)score += self.see(board, move) # Use SEE for move ordering[span_30](end_span)
+                    score += self.see(board, move) # Use SEE for move ordering
                     move_scores.append((move, score))
 
             # Sort by scores, placing best moves first
@@ -1251,10 +1411,10 @@ class ShinigamiEngine:
             ordered_moves = [move for move, _ in move_scores]
 
         best_move = None
-        [span_31](start_span)current_alpha = alpha # For Aspiration Windows[span_31](end_span)
-        [span_32](start_span)current_beta = beta # For Aspiration Windows[span_32](end_span)
+        current_alpha = alpha # For Aspiration Windows
+        current_beta = beta # For Aspiration Windows
 
-        # [span_33](start_span)Aspiration Windows[span_33](end_span)
+        # Aspiration Windows
         # Only apply aspiration window after a certain depth
         if depth > 4: 
             window_size = 50 # Adjust as needed
@@ -1274,23 +1434,38 @@ class ShinigamiEngine:
         for idx, move in enumerate(ordered_moves):
             board.push(move)
 
-            # [span_34](start_span)Late Move Reductions (LMR)[span_34](end_span)
+            # Late Move Reductions (LMR)
             reduction = 0
-            if idx >= 4 and depth >= 3 and not board.is_check() and not board.is_capture(move) and not move.promotion:
-                reduction = 1 + (idx // 8) # Deeper reduction for later moves
+            if idx >= 3 and depth >= 3 and not board.is_check() and not board.is_capture(move) and not move.promotion:
+                # Base reduction on depth and move index
+                reduction = int(0.75 + np.log(depth) * np.log(idx) / 2.0)
 
-            # [span_35](start_span)Extensions[span_35](end_span)
+                # History-guided LMR: reduce less for historically good moves
+                history_score = self.history_table[zobrist_hash].get(move.uci(), 0)
+                if history_score > 500: # Tune this threshold
+                    reduction -= 1
+
+                # Reduce more if the move is not a killer move
+                if move not in self.killer_moves.get(depth, []):
+                     reduction +=1
+
+                reduction = max(0, min(reduction, depth - 2)) # Ensure reduction is safe
+
+            # Extensions
             extension = 0
-            if board.is_check(): # Check Extensions
+            if board.is_check():  # Check Extensions are powerful
                 extension = 1
-            [span_36](start_span)elif board.is_capture(move) and self.see(board, move) > 0: # Recapture Extensions[span_36](end_span)
-                extension = 1
-            [span_37](start_span)elif move.promotion and chess.square_rank(move.to_square) == (7 if board.turn == chess.WHITE else 0): # Passed Pawn Push Extensions[span_37](end_span)
-                extension = 1
-            [span_38](start_span)elif self.is_one_move_mate_threat(board): # One-Move Mate Threat Extensions[span_38](end_span)
-                extension = 1
-
-            new_depth = depth - 1 + extension - reduction
+            else:
+                moved_piece = board.piece_at(move.from_square)
+                # Pawn nearing promotion extension
+                if moved_piece and moved_piece.piece_type == chess.PAWN:
+                    to_rank = chess.square_rank(move.to_square)
+                    if (board.turn != chess.WHITE and to_rank == 1) or \
+                       (board.turn != chess.BLACK and to_rank == 6):
+                        extension = 1
+                # Recapture extension
+                elif board.is_capture(move) and self.see(board, move) > 0:
+                    extension = 1
 
             if idx == 0:
                 _, score = self.alpha_beta(board, new_depth, alpha, beta, not maximizing_player)
@@ -1333,7 +1508,7 @@ class ShinigamiEngine:
 
         self.store_tt(zobrist_hash, best_move, best_score_for_tt, depth, flag)
         if best_move:
-            [span_39](start_span)self.best_score_from_prev_iter = best_score_for_tt # For Aspiration Windows[span_39](end_span)
+            self.best_score_from_prev_iter = best_score_for_tt # For Aspiration Windows
         return best_move, best_score_for_tt
 
     def is_one_move_mate_threat(self, board: chess.Board) -> bool:
@@ -1349,16 +1524,16 @@ class ShinigamiEngine:
     def iterative_deepening(self, board: chess.Board, depth: int, time_control: dict) -> tuple:
         """Iterative deepening search with dynamic time control."""
         start_time = time.time()
-        # [span_40](start_span)Dynamic Time Allocation[span_40](end_span)
+        # Dynamic Time Allocation
         time_limit = time_control['base'] # Base time in seconds
-        [span_41](start_span)increment = time_control.get('increment', 0) # Increment in seconds[span_41](end_span)
+        increment = time_control.get('increment', 0) # Increment in seconds
 
         # Remaining time for the current side (approximate)
         remaining_time = time_control['base'] 
         if board.fullmove_number > 1:
             remaining_time += increment * (board.fullmove_number - 1)
 
-        # [span_42](start_span)Allocate more time for complex positions and less for simple ones[span_42](end_span)
+        # Allocate more time for complex positions and less for simple ones
         # Heuristic for complexity: number of legal moves + checks
         complexity = len(list(board.legal_moves)) + (10 if board.is_check() else 0)
 
@@ -1370,7 +1545,7 @@ class ShinigamiEngine:
         if allocated_time_for_move < 0.1: # Minimum of 100ms
             allocated_time_for_move = 0.1
 
-        # [span_43](start_span)Pondering: If it's opponent's turn and we are waiting, we can "ponder" on their time.[span_43](end_span)
+        # Pondering: If it's opponent's turn and we are waiting, we can "ponder" on their time.
         # This part of pondering would typically be handled by the UCI loop, by receiving the 'ponder' command.
         # For an internal engine, it means calculating the most likely opponent move.
 
@@ -1409,7 +1584,7 @@ class ShinigamiEngine:
             nps = self.nodes_searched / elapsed_time if elapsed_time > 0 else 0
             logging.info(f"Depth {current_depth-1}: nodes={self.nodes_searched}, NPS={int(nps)}, cutoffs={self.cutoffs}, tt_hits={self.tt_hits}, Time Left={hard_time_limit - time.time():.2f}s")
 
-        # [span_44](start_span)Overtime Percentage: Allow engine to exceed allocated time slightly[span_44](end_span)
+        # Overtime Percentage: Allow engine to exceed allocated time slightly
         if time.time() > hard_time_limit and best_move is not None:
             # If we are very close to finding a strong move, allow a slight overshoot
             if (time.time() - hard_time_limit) / allocated_time_for_move < 0.1: # 10% overshoot
@@ -1491,17 +1666,7 @@ class ShinigamiEngine:
 
     def select_difficulty(self) -> str:
         """Select AI difficulty with confirmation for extreme modes and safeguard for The-Big-Bang."""
-        print("Select your Poison, i meant select your opponent AI’s difficulty level.
-Official difficulties:
-1) Easy, 
-2) Medium, 
-3) Hard, 
-4) God-Of-Death, 
-5) Puzzle Mode, 
-Officially Jokes:
-6) Masochist, 
-7) Dialing Satan's Number, 
-8) The Big Bang")
+        print("Select your Poison, i meant select your opponent AI's difficulty level.Official difficulties: 1) Easy, 2) Medium, 3) Hard, 4) God-Of-Death, 5) Puzzle Mode. Officially Jokes: 6) Masochist, 7) Dialing Satan's Number, 8) The Big Bang")
         while True:
             difficulty_input = input("Enter 1, 2, 3, 4, 5, 6, 7, or 8: ").strip()
             difficulties = {
@@ -1681,7 +1846,7 @@ Officially Jokes:
             choice = input("\nEnable Shinigami's AI-powered explanations? (This will cause a delay after each AI move) [y/n]: ").strip().lower()
             if choice == 'y':
                 self.config.USE_LLM_EXPLANATIONS = True
-                print("SUCCESS: AI explanations enabled. The reaper shalll share it's thoughts to you, mortal.")
+                print("SUCCESS: AI explanations enabled. The reaper shall share it's thoughts to you, mortal.")
                 break
             elif choice == 'n':
                 self.config.USE_LLM_EXPLANATIONS = False
@@ -1690,90 +1855,111 @@ Officially Jokes:
             else:
                 print("Invalid input. enter 'y' or 'n' or exit the game.")
 
-    def uci_loop(self):
-        """Handle UCI protocol commands for integration with chess GUIs."""
-        # [Placeholder for Search Interruption]
-        # To implement:
-        # 1. Add a shared flag (e.g., self.stop_search = Manager.Value('b', False)).
-        # 2. Check self.stop_search in alpha_beta and quiescence to exit early.
-        # 3. Requires synchronization across processes in iterative_deepening.
-        board = chess.Board()
-        while True:
+def uci_loop(self):
+    """Handles the full UCI protocol for integration with chess GUIs."""
+    board = chess.Board()
+
+    while True:
+        try:
             command = input().strip()
+            parts = command.split()
+
             if command == "uci":
-                print(f"id name: {self.config.ENGINE_NAME}")
-                print("id author: Tonmoy-KS")
-                print("option name: UseNNUE type check default true")
+                print(f"id name {self.config.ENGINE_NAME}")
+                print(f"id author Tonmoy-KS")
+                # Add any configurable options your engine supports
+                print("option name UseNNUE type check default true")
                 print("uciok")
+
             elif command == "isready":
                 print("readyok")
-            elif command.startswith("setoption name UseNNUE"):
-                self.config.USE_NNUE = "value true" in command.lower()
-                print(f"info string: NNUE {'enabled' if self.config.USE_NNUE else 'disabled'}")
+
+            elif command == "ucinewgame":
+                # Clear hash tables and other game-specific data
+                self.eval_cache.clear()
+                self.pawn_hash_table.clear()
+                self.killer_moves.clear()
+                # If you have a transposition table, you would clear it here too.
+                board.reset()
+
+            elif command.startswith("position"):
+                if "startpos" in parts:
+                    board.reset()
+                    if "moves" in parts:
+                        moves_idx = parts.index("moves") + 1
+                        for move_uci in parts[moves_idx:]:
+                            board.push_uci(move_uci)
+                elif "fen" in parts:
+                    fen_idx = parts.index("fen") + 1
+                    # The FEN string can contain up to 6 parts
+                    fen_str = " ".join(parts[fen_idx : fen_idx + 6])
+                    board.set_fen(fen_str)
+                    if "moves" in parts:
+                        moves_idx = parts.index("moves") + 1
+                        for move_uci in parts[moves_idx:]:
+                            board.push_uci(move_uci)
+
             elif command == "stop":
                 self.stop_search = True
-            elif command.startswith("position"):
-                parts = command.split()
-                board = chess.Board()
-                if parts[1] == "startpos":
-                    if "moves" in parts:
-                        moves_idx = parts.index("moves") + 1
-                        moves = parts[moves_idx:]
-                        for move_uci in moves:
-                            board.push_uci(move_uci)
-                elif parts[1] == "fen":
-                    fen_str = " ".join(parts[2:8])
-                    board = chess.Board(fen_str)
-                    if "moves" in parts:
-                        moves_idx = parts.index("moves") + 1
-                        moves = parts[moves_idx:]
-                        for move_uci in moves:
-                            board.push_uci(move_uci)
+                if self.search_thread and self.search_thread.is_alive():
+                    self.search_thread.join()
+
             elif command.startswith("go"):
-                parts = command.split()
-                # Reset stop_search flag for new search
-                self.stop_search = False
+                if self.search_thread and self.search_thread.is_alive():
+                    self.stop_search = True
+                    self.search_thread.join()
+               self.stop_search = False
 
-                # Default difficulty to 'hard' for UCI unless specified
-                difficulty = "hard" 
-                depth = self.config.DEPTHS[difficulty]
-                time_control = self.config.TIME_CONTROLS[difficulty].copy()
+                # Parse Time Controls and Search Parameters
+                depth = self.config.DEPTHS.get('hard', 40) # Default to a high depth
 
-                wtime = None
-                btime = None
-                winc = 0
-                binc = 0
-                movetime = None
+                time_control = self.config.TIME_CONTROLS['hard'].copy()
 
-                # Parse UCI time controls
-                for i in range(len(parts)):
-                    if parts[i] == "wtime":
-                        wtime = int(parts[i+1]) / 1000 # Convert ms to seconds
-                    elif parts[i] == "btime":
-                        btime = int(parts[i+1]) / 1000
-                    elif parts[i] == "winc":
-                        winc = int(parts[i+1]) / 1000
-                    elif parts[i] == "binc":
-                        binc = int(parts[i+1]) / 1000
-                    elif parts[i] == "movetime":
-                        movetime = int(parts[i+1]) / 1000
-                    elif parts[i] == "depth":
-                        depth = int(parts[i+1])
-
-                if movetime is not None:
-                    time_control['base'] = movetime
+                movetime = -1
+                if 'movetime' in parts:
+                    movetime = int(parts[parts.index('movetime') + 1])
+                    time_control['base'] = movetime / 1000
                     time_control['increment'] = 0
-                elif wtime is not None and btime is not None:
-                    time_control['base'] = wtime if board.turn == chess.WHITE else btime
-                    time_control['increment'] = winc if board.turn == chess.WHITE else binc
 
-                move, score = self.iterative_deepening(board, depth, time_control)
-                if move:
-                    print(f"bestmove {move.uci()}")
+                if 'wtime' in parts:
+                    wtime = int(parts[parts.index('wtime') + 1])
+                    btime = int(parts[parts.index('btime') + 1])
+                    winc = int(parts[parts.index('winc') + 1]) if 'winc' in parts else 0
+                    binc = int(parts[parts.index('binc') + 1]) if 'binc' in parts else 0
+
+                    if board.turn == chess.WHITE:
+                        time_control['base'] = wtime / 1000
+                        time_control['increment'] = winc / 1000
+                    else:
+                        time_control['base'] = btime / 1000
+                        time_control['increment'] = binc / 1000
+
+                if 'depth' in parts:
+                    depth = int(parts[parts.index('depth') + 1])
+
+                # --- Start search in a new thread ---
+                search_args = (board.copy(), depth, time_control)
+
+                def search_and_respond():
+                    # This function will be run in a separate thread
+                    best_move, score = self.iterative_deepening(*search_args)
+                    if best_move:
+                        print(f"bestmove {best_move.uci()}")
+
+                self.search_thread = threading.Thread(target=search_and_respond)
+                self.search_thread.start()
+
             elif command == "quit":
+                self.stop_search = True
+                if self.search_thread and self.search_thread.is_alive():
+                    self.search_thread.join()
                 break
 
-if __name__ == "__main__"
+        except Exception as e:
+            # Log errors without crashing the engine
+            logging.error(f"Error in UCI loop: {e} on command: '{command}'")
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Shinigami Chess Engine")
     parser.add_argument('--cores', type=int, default=ShinigamiConfig.NUM_PROCESSES, help="Number of CPU cores to use")
     parser.add_argument('--gui', action='store_true', help="Run with GUI")
@@ -1806,3 +1992,5 @@ if __name__ == "__main__"
     else:
         # Default to playing with AI if no specific mode is chosen
         engine.play_chess_with_ai(chess.BLACK)
+
+# ——— End ———
