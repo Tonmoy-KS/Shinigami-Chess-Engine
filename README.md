@@ -1,58 +1,43 @@
 ---
 
-# Shinigami Chess Engine (V.1.17.9 – Gen 2 Edition)
+# Shinigami Chess Engine (V.1.18.2 – Gen 2 Edition)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-FF4136?labelColor=gray)
 ![Python](https://img.shields.io/badge/language-Python_3.8+-2ECC40?labelColor=gray)
 ![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-0074D9?labelColor=gray)
 
-**Shinigami V.1.17.9 – Gen 2 Edition (Latest)**  
-_A professional chess engine with full tree parallelization, advanced NNUE evaluation, self-adapting features, enhanced puzzle system._
+**Shinigami V.1.18.2 – Gen 2 Edition (Latest)**  
+_A professional chess engine with full tree parallelization, advanced NNUE, LLM-powered move explanations, self-adapting features, and a brutal/funny trash talk system._
 
 ---
 
-## 🚀 Latest Updates (V.1.17.9)
-- **New Tactical Puzzle Generator:** Expanded database and improved task description for puzzle mode.  
-- **Dynamic Opening Book Pruning:** Opening book now self-prunes weak lines, adapts even better to new opponents.  
-- **Improved Evaluation:**  
-  - Advanced king safety, pawn structure, mobility, and outpost detection.  
-  - Enhanced rook/queen evaluation for open/semi-open files and connected pieces.  
-- **NNUE & Policy Network:**  
-  - Now supports full HalfKAv2 encoding for evaluation.  
-  - CNN-based move-ordering with training from self-play is improved and weights auto-loaded.  
-- **Genetic Feature Engineering:**  
-  - Automated tuning for piece values and PSTs mid-game using DEAP.  
-- **Trash Talk Engine:**  
-  - Expanded, even more brutal/funny commentary (can be customized/disabled).  
-- **Extreme Mode Safeguards:**  
-  - “The Big Bang” mode is blocked by default, with triple-confirmation required on joke/extreme modes.  
-- **Syzygy Tablebase:**  
-  - Improved fallback and logging when tablebases not found.  
-- **UCI Protocol:**  
-  - Enhanced support for GUIs and time controls, automatic detection of options.
-- **Multiprocessing:**  
-  - Cross-platform safe, uses optimal pool sizes and dynamic chunking per system.
-- **Voice Commentary:**  
-  - TTS engine (pyttsx3) initialization improved; will warn/fallback if unavailable.
-- **Logging:**  
-  - Cleaner, more informative logs per game, search, and training.
+## 🚀 Latest Updates (V.1.18.2)
+- **Genetic Feature Engineering:** DEAP-powered auto-tuning for piece values and PSTs mid-game.
+- **Dynamic Opening Book Pruning:** Opening book now self-prunes weak lines and adapts to new opponents.
+- **Enhanced Evaluation:**  
+  - King safety, pawn structure, mobility, outpost, bishop pair, rook/queen evaluation refined.
+- **Full UCI Protocol:** Full UCI compliance.
+- **Logging:** Cleaner, more informative logs for games, search, and training.
+- **Opponent Learning:** Engine adapts to your style in real time.
+- **Debug:** Fixed a Lot of Bugs and made the code more cleaner and organized.
 
 ---
 
 ## Features
 
-- **Full Tree Parallelization:** Fast, multicore search for epic depth.
+- **Full Tree Parallelization:** Multicore search for epic depth and speed.
 - **Advanced NNUE (HalfKAv2):** Modern neural evaluation (user-trainable).
 - **CNN Policy Network:** Move ordering powered by a convolutional neural net.
 - **Syzygy Tablebase Support:** Endgame perfection (≤7 pieces).
 - **Genetic Feature Engineering:** DEAP-powered auto-tuning for piece values and tables.
 - **Self-Play & Training:** Generates and learns from games, retrains NNUE and policy networks.
-- **Dynamic Opening Book:** Adapts to self-play and opponent moves.
-- **Opponent Learning:** Engine adapts to your style in real time.
+- **Dynamic Opening Book:** Adapts with self-play and opponent moves, prunes weak lines.
+- **Opponent Learning:** Adapts to your style, learning openings and move qualities.
 - **Puzzle Generator:** Built-in tactical puzzles and board tasks.
-- **GUI & Console:** Tkinter GUI (with mouse and text input) or classic terminal mode.
+- **GUI & Console:** Tkinter GUI or classic terminal mode.
 - **UCI Protocol:** Plug into chess GUIs (Arena, CuteChess, etc.).
-- **Trash Talk Engine:** Witty, customizable, and (optionally) brutal.
+- **Trash Talk Engine:** Witty, customizable, optionally brutal commentary.
+- **LLM Explanations:** In-character move explanations via OpenAI API (optional).
 - **Extreme Difficulty Modes:** From beginner to "The Big Bang" (with cosmic warnings...).
 
 ---
@@ -69,12 +54,12 @@ cd Shinigami-Chess-Engine
 ```bash
 pip install -r requirements.txt
 ```
-*Note: Ensure you have Python 3.8+.*
+*Requires Python 3.8+.*
 
 ### Optional Assets
-- **NNUE Weights:** Download `nnue_weights.bin` (HalfKAv2 compatible) and place in the project root or specify with `--nnue-file`.
-- **Syzygy Tablebases:** Download and place .rtb files in `./tablebases` or specify path with `--syzygy-path`.
-- **Polyglot Opening Book:** Place a `.bin` file in the project root or specify via command-line argument.
+- **NNUE Weights:** Download `nnue_weights.bin` (HalfKAv2 compatible) and place in project root or specify with `--nnue-file`.
+- **Syzygy Tablebases:** Download and place .rtb files in `./tablebases` or specify via `--syzygy-path`.
+- **Polyglot Opening Book:** Place `.bin` file in project root or specify via command-line.
 
 ---
 
@@ -109,82 +94,71 @@ python3 Main_Code_1 --uci
 
 ## Logging
 
-Search statistics, self-play games, and learning data are logged to `shinigami_engine.log`.
+Game statistics, self-play, and learning data are logged to `shinigami_engine.log`.
 
 ---
 
-## Extreme Difficulty Modes Explained
+## LLM-Powered Move Explanations
 
-The engine includes several extreme difficulty modes.
+- Uses OpenAI API (set `OPENAI_API_KEY` environment variable).
+- Optional, can be enabled/disabled at runtime.
+- Provides witty, in-character commentary on engine moves.
+
+---
+
+## Extreme Difficulty Modes
 
 ### Official
-- **easy:** Beginner level.
-- **medium:** Club-level player.
-- **hard:** Strong player.
-- **god-of-death:** Grandmaster+ level.
-- **puzzle:** For solving tactical puzzles.
+- **easy:** Beginner
+- **medium:** Club-level
+- **hard:** Strong player
+- **god-of-death:** near Grandmaster
+- **puzzle:** Tactical puzzle mode
 
 ### Experimental/Jokes
-- **masochist:** Insane mode requiring triple confirmation. May atomize or ionize your hardware.
-- **dialing-satan-s-number:** Joke/extreme mode with a time control of "69 Eons." Triple confirmation required.
-- **the-big-bang:** Experimental infinite depth/time mode, blocked for safety.
+- **masochist:** Insane mode
+- **dialing-satan-s-number:** Meme mode
+- **the-big-bang:** God mode
 
-> **Cosmic Warning:**  
-> Using the deepest modes may summon Outer Gods or turn your computer into a black hole. Use triple confirmation wisely!
 ---
 
-### FAQ
+## FAQ
 
 1. **What makes Shinigami different from other chess engines?**  
-   Full tree parallelization, advanced NNUE, CNN policy network, genetic feature engineering, and a unique "trash talk" engine and LLM-powered Explanations.
+  A: Genetic feature engineering, trash talk, and LLM-powered move explanations made it a great UX software and different from other Great engines that are just Silent Calculators.
 
-2. **How do I enable the "Trash Talk" feature?**  
-   It's enabled by default! Prepare for witty, sometimes brutal, commentary during gameplay.
+2. **How do I enable LLM Explanations?**  
+  A: Set your OpenAI API key and OpenAI model and enable at startup,we also have a LLM model but it's currently not available.
 
-3. **What about the "The Big Bang" and "Dialing Satan's Number" modes? Are they real?**  
-   Extreme, experimental modes. "The Big Bang" is blocked for safety. "Dialing Satan's Number" is a meme with massive time control.
+3. **How do I enable/disable The Trash Talk Dictionary?**  
+  A: Enabled by default. You can customize or disable in the source code.
 
-4. **Does Shinigami learn/adapt openings from self-play or opponents?**  
-   Absolutely, with dynamic pruning and statistics.
+4. **What are “The Big Bang” and “Dialing Satan’s Number” modes?**  
+  A: Extreme/joke modes. “The Big Bang” is blocked for safety; “Dialing Satan’s Number” is a meme. just to test the limits of Computation.
 
-5. **How do I train/improve the Policy Network and NNUE modules?**  
-   Use self-play, or provide your own datasets. See code for details.
+5. **Does Shinigami learn/adapt openings from games?**  
+  A: Yes, via dynamic pruning and opponent learning.
 
-6. **Can I customize/disable the engine's trash talk?**  
-   Yes, modify the dictionary in the source or set it to empty.
+6. **How do I train NNUE and Policy Network?**  
+  A: Use self-play, or use your own datasets via Training a PyTorch model. so official Model currently.
 
-7. **Are there known limitations or funny side effects using Syzygy or deepest modes?**  
-   "Your Firmware may summon Outer Gods if you use the Deepest Search modes."
+7. **Is Shinigami UCI-compliant for GUIs?**  
+  A: Yes.
 
-8. **Is Shinigami UCI-compliant for GUIs?**  
-   Yes, with enhanced and auto-detected options.
+8. **Can I contribute neural weights, feature sets, or puzzles?**  
+  A: contributions welcome.
 
-9. **Can users contribute their own neural weights, feature sets, or puzzles?**  
-   Absolutely, contributions are welcome!
+9. **What about system requirements for extreme modes?**  
+  A: Use first five modes are Official modes that are Stable; the other modes are just experiments.
 
-10. **What if the engine crashes or hardware is "atomized" by extreme settings?**  
-    Read the triple-confirmation warnings. Proceed at your own risk!
-
-11. **Recommended system requirements for extreme modes?**  
-    Use first five modes for stability. Experimental/joke modes are for memes only.
-
-12. **How does Shinigami handle different time controls and optimize for each?**  
-    Time controls are adjustable in code and via command-line.
-
-13. **Can users customize playing style (aggressive, positional)?**  
-    Planned for future update!
-
-14. **Key differences in "Gen 2 Edition"?**  
-    Major improvements after V.1.10.0; see "Latest Updates" above.
-
-15. **Roadmap for future development?**  
-    Yes, but not public.
+10. **Can I customize the playing style (aggressive, positional)?**  
+   A: Not currently. planned for future updates.
 
 ---
 
 ## License
 
-**License:** MIT License  
+**License:** MIT  
 **Credit:** Tonmoy-KS  
 Do not claim as your own; fork, mod, and contribute instead!
 
