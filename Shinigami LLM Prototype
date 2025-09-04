@@ -30,7 +30,7 @@ MIN_LR = 1e-6
 
 # --- Training toggles ---
 USE_AMP = True  # mixed precision (fp16/bf16 if available)
-USE_CHECKPOINT = True  # gradient checkpointing
+USE_CHECKPOINT = False  # gradient checkpointing
 EMA_DECAY = 0.999  # 0 to disable EMA
 CKPT_PATH = "checkpoint_v2.pt"
 
