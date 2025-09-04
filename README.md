@@ -166,9 +166,12 @@ Do not claim as your own; fork, mod, and contribute instead!
 
 ## Major Contributers
 
-1) [Inskitz](https://github.com/InSkitz) [https://github.com/InSkitz]
-2) [Dakter-Tech](https://github.com/dakther-tech)[https://github.com/dakther-tech]
-3) [Shanjid-KS](https://github.com/shanjid-KS)[https://github.com/shanjid-KS]
+1) [Inskitz](https://github.com/InSkitz) 
+[https://github.com/InSkitz]
+2) [Dakter-Tech](https://github.com/dakther-tech) 
+[https://github.com/dakther-tech]
+3) [Shanjid-KS](https://github.com/shanjid-KS) 
+[https://github.com/shanjid-KS]
 
 ---
 
