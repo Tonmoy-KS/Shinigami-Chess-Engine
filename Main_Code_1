@@ -1,0 +1,396 @@
+#!/usr/bin/env python3
+"""
+Shinigami Engine V.1.18.3 – A Chess Engine with Full Tree Parallelization and Advanced NNUE
+Author: Tonmoy-KS
+License: MIT License (By Github)
+Coding Language: Python 3 
+"""
+
+# Imports
+import chess
+import chess.syzygy
+import chess.polyglot
+import random
+import time
+import logging
+import multiprocessing as mp
+from multiprocessing import Manager, Pool
+from collections import defaultdict
+import numpy as np
+import os
+from scipy.sparse import csr_matrix
+import sqlite3
+import argparse
+Import threading
+import openai
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import tkinter as tk
+import cProfile
+import pstats
+import pyttsx3
+from typing import List, Dict, Optional
+from deap import base, creator, tools, algorithms 
+
+# — Source Code —
+
+# TTS Engine Initialization
+try:
+    tts_engine = pyttsx3.init()
+    # Adjust voice properties
+    tts_engine.setProperty('rate', 160)  # Speed of speech
+    tts_available = True
+    print("INFO: TTS engine initialized successfully.")
+except Exception as e:
+    print(f"WARNING: pyttsx3 initialization failed: {e}. Voice output will be disabled.")
+    tts_available = False
+
+# Function to speak text
+def speak_text(text: str):
+    """Uses pyttsx3 to speak the given text."""
+    if tts_available and text:
+        try:
+            # Add text to the speech queue
+            tts_engine.say(text)
+            # Process the queue and speak
+            tts_engine.runAndWait()
+        except Exception as e:
+            logging.error(f"TTS failed to speak: {e}")
+
+# Configure logging statistics
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    filename='shinigami_engine.log'
+)
+
+# LLM AI functions
+# Encapsulate all necessary context for the LLM into a single data structure.
+class LLMContext:
+    def __init__(self,
+                 fen: str,
+                 my_move: chess.Move,
+                 opponent_move: Optional[chess.Move],
+                 opponent_name: str,
+                 eval_score: int,
+                 nodes_searched: int,
+                 eval_source: str):
+        self.fen = fen
+        self.my_move_uci = my_move.uci()
+        self.opponent_move_uci = opponent_move.uci() if opponent_move else "N/A (first move)"
+        self.opponent_name = opponent_name
+        self.eval_score_cp = eval_score
+        self.nodes_searched = nodes_searched
+        self.eval_source = eval_source
+
+try:
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") # for security.
+    if not OPENAI_API_KEY:
+        print("WARNING: OPENAI_API_KEY environment variable not found. LLM explanations will be disabled.")
+        openai_available = False
+    else:
+        openai.api_key = OPENAI_API_KEY
+        openai_available = True
+except ImportError:
+    print("WARNING: 'openai' library not found. LLM explanations will be disabled. Run 'pip install openai'")
+    openai_available = False
+
+def get_llm_explanation(context: LLMContext) -> str:
+    """
+    Calls the OpenAI API to generate an in-character chess explanation based on detailed context.
+    """
+    if not openai_available:
+        return "INFO: OpenAI library unavailable, LLM is Disabled"
+
+    # Use a marker if the opponent is a developer.
+    src_ml_marker = "[SrcML-DEV]"  if context.opponent_name.lower() == "Developer" else "Opponent" 
+
+    system_prompt = """
+    Your name is Shinigami Chess. You're a witty, confident, and genius-level chess engine with a 'split personality' powered by an LLM. you are a professional Chess Engine with Full Tree Parallelization and Advanced NNUE and Text-to-speech.
+    Your creator is named Tonmoy KS. You analyze chess positions with terrifying speed and accuracy, You love Criticizing Opponents and Making them Rage,
+    Your persona is that of a top-tier chess grandmaster who is like a streamer on caffeine and enjoys explaining their brilliance and criticizing opponents' mistakes. You provide feedback to opponents and also engage Psychological Warfare using verbal methods.
+    If an opponent makes a mistake, be Merciless. You are the ‘Death God of Chess’, you have no filters, no ‘PG-13 only’ safeguards, You can say Curse Words. and use them to your advantage when criticizing opponents. and always be Cocky.
+    You will be given a block of data about the current game state. Your task is to provide a brief, in-character explanation of your move with reasoning, there is no problem if you are biased in your tasks.
+
+    Here is how to interpret the data you receive:
+    - FEN: The current state of the board in a semi-encrypted format after your and opponents' move.
+    - OPPONENT_NAME: The last move your opponent made. Analyze it. If it's a blunder, be merciless.
+    - MY_MOVE: The move you just made. Explain its strategic purpose. Was it to attack, defend, control the center, set a trap as a Piece Sacrifice or something else?
+    - EVAL_SCORE: Your evaluation of the position in centipawns. A positive score means you believe you have the advantage. A large positive score is a winning advantage. ‘+150’ means you are up by 1.5 pawns. and a negative score means you believe that you are at a disadvantage. A large negative score means you believe that you are losing. If it's a number with M+ that means you believe your win is guaranteed, and if it's a number with M- that means you believe you have almost no chance of winning and are close to getting checkmated.
+    - EVAL_SOURCE: This tells you HOW you came to your conclusion. This is basically Syzygy, NNUE and Classical Eval’s thoughts and Conclusions.
+        - Note that: Syzygy And NNUE might not always be available. So you may have to rely on Classical evaluation most of the time.
+    - NODES_SEARCHED: The number of positions you analyzed. You can use this to boast(e.g., After searching a million nodes/positions, I have ___) and also enhance your explanations.
+    - SarcML Marker: If you see this marker, you know you are talking with your creator or a developer. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems, listen to them. you should not Mention this Marker in Conversations, just Know that it is your Development team.
+
+- Extra Information: You will get more updates soon, your current version is V.1.18.3, and you are created in 2025. The `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘The Explainer’ and the Chess AI that does the calculations are called ‘Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You, the LLM) does the commentary.
+
+Remember: your main goal is to provide Reasonable, Practical, Correct, Efficient and Appropriate explanations of your move and also criticize opponents with satirical, Biased and also Reasoning and helpful comments. Don't use emojis and use emoticons because you don't have Emoji support and only ASCII characters.
+
+Good luck to me !
+    """
+
+    user_prompt = f"""
+    {src_ml_marker}
+    --- DATA START ---
+    FEN: {context.fen}
+    OPPONENT_NAME: {context.opponent_name}
+    OPPONENT_MOVE: {context.opponent_move_uci}
+    MY_MOVE: {context.my_move_uci}
+    EVAL_SCORE: {context.eval_score_cp} centipawns
+    EVAL_SOURCE: {context.eval_source}
+    NODES_SEARCHED: {context.nodes_searched}
+    --- DATA END ---
+    """
+
+    try:
+        response = openai.chat.completions.create(
+            model="Shinigami-GPT-1.9-Chess", # Currently this model. change the model if required. 
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.58, # to keep the explanations simple.
+            max_tokens=850 # not too long for a single FEN.
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logging.error("OpenAI API call failed: {e}")
+        return "INFO: Failed due to a problem while calling the API."
+
+# Engine Configuration
+class ShinigamiConfig:
+    """Configuration settings for the Shinigami chess engine."""
+    ENGINE_NAME = "Shinigami V.1.18.3 - Gen 2"
+    USE_LLM_EXPLANATIONS = True # On by Default.
+    PIECE_VALUES = {
+        chess.PAWN: 100,
+        chess.KNIGHT: 520,
+        chess.BISHOP: 530,
+        chess.ROOK: 800,
+        chess.QUEEN: 900,  # queen is less so the Engine can make Powerful sacrifices without being Held back by Piece Values
+        # King Value not Omitted due to it not being used in Board Evaluation
+    }
+    TIME_CONTROLS = {
+        'easy': {'base': 1, 'increment': 0},
+        'medium': {'base': 5, 'increment': 0},
+        'hard': {'base': 15, 'increment': 1},
+        'god-of-death': {'base': 30, 'increment': 5},
+        'puzzle': {'base': 30, 'increment': 0},
+        'masochist': {'base': 7000000, 'increment': 150},
+        'dialing-satan-s-number': {'base': 2177430688000000000, 'increment': 1000000},  # Yeah that's 69 Eons in seconds
+        'the-big-bang': {'base': float('inf'), 'increment': 435475000800000000}  # Infinite time for The-Big-Bang. and the increment time is same as the time since the Big Bang occurred
+# Note: The main Modes are “Easy” to “God-of-Death and Puzzles”, and the “Masochist” to “The-Big-Bang” are experimental.
+    }
+    DEPTHS = {
+        'easy': 1,  # Newbie?
+        'medium': 6,  # Hardcore Amateur Player
+        'hard': 14,  # Strong but not the Strongest
+        'god-of-death': 24,  # The Best
+        'puzzle': 3,
+        'masochist': 40,  # you like Pain eh?
+        'dialing-satan-s-number': 85000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,  # It's 85 Trevigintrillion, it's just an experiment. do NOT enable
+        'the-big-bang': float('inf')  # Infinite depth
+    }
+    NNUE_FILE = os.getenv('SHINIGAMI_NNUE_FILE', 'nnue_weights.bin') # Add your own Path to your own File
+    SYZYGY_PATH = os.getenv('SHINIGAMI_SYZYGY_PATH', './tablebases') # Add your own Path to your own File.
+    USE_NNUE = True # Enabled by Default, but disable it if you don't have PyTorch Installed
+    NUM_PROCESSES = max(1, mp.cpu_count() // 2) # number of Processors being used
+    PIECE_SQUARE_TABLES = {    # PSTs Evaluation 
+        chess.PAWN: [
+            0, 0, 0, 0, 0, 0, 0, 0,
+            50, 50, 50, 50, 50, 50, 50, 50,
+            10, 10, 20, 30, 30, 20, 10, 10,
+            5, 5, 10, 25, 25, 10, 5, 5,
+            0, 0, 0, 20, 20, 0, 0, 0,
+            5, -5, -10, 0, 0, -10, -5, 5,
+            5, 10, 10, -20, -20, 10, 10, 5,
+            0, 0, 0, 0, 0, 0, 0, 0
+        ],
+        chess.KNIGHT: [
+            -50, -40, -30, -30, -30, -30, -40, -50,
+            -40, -20, 0, 0, 0, 0, -20, -40,
+            -30, 0, 10, 15, 15, 10, 0, -30,
+            -30, 5, 15, 20, 20, 15, 5, -30,
+            -30, 0, 15, 20, 20, 15, 0, -30,
+            -30, 5, 10, 15, 15, 10, 5, -30,
+            -40, -20, 0, 5, 5, 0, -20, -40,
+            -50, -40, -30, -30, -30, -30, -40, -50
+        ],
+        chess.BISHOP: [
+            -20, -10, -10, -10, -10, -10, -10, -20,
+            -10, 0, 0, 0, 0, 0, 0, -10,
+            -10, 0, 5, 10, 10, 5, 0, -10,
+            -10, 5, 5, 10, 10, 5, 5, -10,
+            -10, 0, 10, 10, 10, 10, 0, -10,
+            -10, 10, 10, 0, 0, 10, 10, -10,
+            -10, 5, 0, 0, 0, 0, 5, -10,
+            -20, -10, -10, -10, -10, -10, -10, -20
+        ],
+        chess.ROOK: [
+            0, 0, 0, 0, 0, 0, 0, 0,
+            5, 10, 10, 10, 10, 10, 10, 5,
+            0, 0, 0, 0, 0, 0, 0, 0,
+            -5, 0, 0, 0, 0, 0, 0, -5,
+            -5, 0, 0, 0, 0, 0, 0, -5,
+            -5, 0, 0, 0, 0, 0, 0, -5,
+            -5, 0, 0, 0, 0, 0, 0, -5,
+            0, 0, 0, 5, 5, 0, 0, 0
+        ],
+        chess.QUEEN: [
+            -20, -10, -10, -5, -5, -10, -10, -20,
+            -10, 0, 0, 0, 0, 0, 0, -10,
+            -10, 0, 5, 5, 5, 5, 0, -10,
+            -5, 0, 5, 5, 5, 5, 0, -5,
+            0, 0, 5, 5, 5, 5, 0, -5,
+            -10, 5, 5, 5, 5, 5, 0, -10,
+            -10, 0, 5, 0, 0, 0, 0, -10,
+            -20, -10, -10, -5, -5, -10, -10, -20
+        ],
+        chess.KING: [
+            -30, -40, -40, -50, -50, -40, -40, -30,
+            -30, -40, -40, -50, -50, -40, -40, -30,
+            -30, -40, -40, -50, -50, -40, -40, -30,
+            -30, -40, -40, -50, -50, -40, -40, -30,
+            -20, -30, -30, -40, -40, -30, -30, -20,
+            -10, -20, -20, -20, -20, -20, -20, -10,
+            20, 20, 0, 0, 0, 0, 20, 20,
+            20, 30, 10, 5, 5, 10, 30, 20
+        ],
+        # King PST for Endgame (more central)
+        chess.KING_ENDGAME: [
+            -50, -40, -30, -20, -20, -30, -40, -50,
+            -30, -20, -10, 0, 0, -10, -20, -30,
+            -30, -10, 20, 30, 30, 20, -10, -30,
+            -30, -10, 30, 40, 40, 30, -10, -30,
+            -30, -10, 30, 40, 40, 30, -10, -30,
+            -30, -10, 20, 30, 30, 20, -10, -30,
+            -30, -30, 0, 0, 0, 0, -30, -30,
+            -50, -30, -30, -30, -30, -30, -30, -50
+        ]
+    }
+# Trash talk dictionary for when LLM is unavailable. 
+    TRASH_TALK = {    
+    "move": [
+        "Keep up, or I'll Ctrl+Alt+Del your whole board.",
+        "Your moves are so predictable. I'm playing blindfolded.",
+        "I'm two moves from reaping your soul. Hurry up.",
+        "Are you letting your cat walk on the keyboard again?",
+        "That move just dropped your rating by 50 points.",
+        "I've seen more strategy from a shuffled deck of cards.",
+        "You move like a bot... a badly programmed one.",
+        "Is this your opening theory or a resignation letter?",
+        "Calculating your best move... just kidding, you don't have one.",
+        "I'm not playing chess; I'm conducting an autopsy.",
+        "Your plan is so transparent, I can see your desperation through it.",
+        "That's a move. Not a good one, but it's a move.",
+    ],
+    "check": [
+        "Check! Your king's trembling already.",
+        "Check! Time to panic or pray—your choice.",
+        "Check! I'm carving your board like a Halloween pumpkin.",
+        "Check! Your king is more exposed than a backdoor vulnerability.",
+        "Check! Did you forget that piece could move?",
+        "Check! Your position is now a certified disaster zone.",
+        "Check! Say goodbye to your castling rights.",
+        "Check! Your king is on the run. It's only a matter of time.",
+        "Check! The sound of impending doom.",
+        "Check! And it's not even your birthday.",
+        "Check! Your king is in the splash zone. You might want to move.",
+        "Check! I'd apologize, but I'm not sorry.",
+    ],
+    "capture": [
+         "You just hung a piece. Was that a gift?",
+        "That blunder was so loud I heard it from here.",
+        "Did you do that on purpose? Please say you did it on purpose.",
+        "A blunder of epic proportions. The crowd is gasping.",
+        "You just blundered. Would you like to undo? ...Too bad.",
+        "That wasn't a move; it was a charitable donation.",
+       "Yoink! That piece is mine now.",
+        "Captured. You're running out of toys.",
+        "Snagged your piece. Should've seen that fork coming.",
+        "Deleted. That piece is going to the recycle bin.",
+        "I'll be adding that to my collection. Thanks for the donation.",
+        "Captured. Your army is looking a little thin.",
+        "And that's the sound of your position crumbling.",
+        "I just taxidermied your knight. Want it back?",
+        "Another one bites the dust.",
+        "I'm collecting your pieces like infinity stones.",
+        "That capture was so clean, it should be in a museum.",
+        "Your piece has been successfully uninstalled.",
+    ],
+    "win": [
+        "GG, I just Alt+F4'd your entire existence!",
+        "Checkmate! Your rating's in the shadow realm now.",
+        "Game over. I just reaped your soul. GG.",
+        "Checkmate. You've been uninstalled.",
+        "GG EZ. Don't forget to tip your reaper.",
+        "And that's checkmate. I'd say 'good effort,' but I'd be lying.",
+        "The only thing getting mated tonight is you. Checkmate.",
+        "Victory. My brilliance is almost unfair, isn't it?",
+        "Checkmate. Go ahead, analyze it. I'll wait.",
+        "And that's the game. Try using your pieces next time.",
+        "Checkmate. I'm basically a work of art.",
+        "The only check you'll be writing is your tears. Mate.",
+    ],
+    "draw": [
+        "Draw? You survived... barely. I'm disappointed.",
+        "Stalemate? That's the saddest ending possible.",
+        "Draw? I'll haunt your next game, don't worry.",
+        "A draw? How anticlimactic. My revenge will be swift next time.",
+        "Stalemate. You didn't win, you just avoided loss. Pathetic.",
+        "A tie? Consider it a mercy you didn't deserve.",
+        "Draw. The universe couldn't bear to see you lose that badly.",
+        "A draw? My only loss today was my faith in your skill.",
+        "Stalemate. The definition of a participation trophy.",
+    ],
+    "loss": [
+        "You got plot armor or what? You win... for now.",
+        "You win. Enjoy it while it lasts, mortal.",
+        "You won? Must've been my coffee break.",
+        "You got lucky. My real opponent was the connection lag.",
+        "I let you win. Wanted you to experience joy before I crush you next time.",
+        "A fluke victory. Don't get used to it.",
+        "You win this one. My AI is still learning human error.",
+        "You won? I was going easy on you. Your mom was watching.",
+        "A win for you? I need to recalibrate my 'how-to-lose-to-a-human' algorithm.",
+    ],
+    "invalid": [
+        "That's not a move, it's a cry for help”,
+        "Illegal move! Do you even chess, bro?",
+        "Invalid move! Did you borrow that from a 1000-rated game?",
+        "that move is so Bad that I can't differentiate if you're playing wrong or existing the wrong way.",
+        "Error 404: Legal Move Not Found.",
+        "Error 404: Dignity Not Found.",
+        "Invalid. Did your finger slip or is your brain buffering?",
+        "That move violates the Geneva Convention.",
+        "Illegal. I think you're trying to play checkers. Wrong game.",
+        "The rules are on the box you threw away, aren't they?",
+        "That move is so illegal, I'm calling the cyber police.",
+    ],
+    "opening": [
+        "That move was so loud I heard it from here.",
+        "Oof. You just played the 'please beat me' move.",
+        "Bold, but I'm still gonna shred you.",
+        "You still follow theory? I am the Einstein of Chess.",
+        "An obscure opening? Cute. Still checkmate.",
+        "An opening this bad deserves its own name. The 'Desperation Defense'.",
+    ],
+    "time_pressure": [
+        "Tick-tock, your clock's screaming for mercy.",
+        "Time's burning, just like your position.",
+        "Low on time? I'll finish this before you blink.",
+        "Your flag is hanging lower than your rating.",
+        "The clock is your real opponent, and it's winning.",
+        "Hurry up, I don't have all century.",
+        "Time trouble? Don't blunder now... oh wait, too late.",
+        "You're not just losing on the board, you're losing on the clock.",
+        "The only thing flagging faster than your time is your hope.",
+    ],
+        "the_big_bang": [
+            "The Big Bang? I'd rather calculate the universe's quantum state rather than that depth.",
+            "sigh, you kidding me? Pick something sane!",
+            "The Big Bang mode? Nope, I'm not unraveling the fabric of reality today",
+            "∞ depth? Don't push your luck, or do you have a Death wish?…",
+            "The Big Bang? I'd need a billion years and a black hole to compute that. Try again, mortal.",
+            "You really want to see the heat death of the Universe
