@@ -381,7 +381,6 @@ class ShinigamiConfig:
         "A win for you? I need to recalibrate my 'how-to-lose-to-a-human' algorithm.",
     ],
     "invalid": [
-        "That's not a move, it's a cry for help”,
         "Illegal move! Do you even chess, bro?",
         "Invalid move! Did you borrow that from a 1000-rated game?",
         "that move is so Bad that I can't differentiate if you're playing wrong or existing the wrong way.",
@@ -1721,7 +1720,7 @@ if black_queen_sq_list:
                 # Recapture extension
                 elif board.is_capture(move) and self.see(board, move) > 0:
                     extension = 1
-  
+
           new_depth = depth - 1 - reduction + extension
 
             if idx == 0:
