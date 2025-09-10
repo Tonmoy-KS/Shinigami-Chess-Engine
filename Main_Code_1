@@ -34,6 +34,15 @@ try:
 except ImportError:
     print("WARNING: 'torch' or 'scipy' not found. NNUE and Policy Network features will be disabled.")
     print("         To enable them, run: pip install torch scipy")
+# - dummies for when numpy and scipy are unavailable -
+    class nn:
+        Module = object
+        Conv2d = object
+        Linear = object
+        ReLU = object
+        Softmax = object
+        CrossEntropyLoss = object
+        MSELoss = object
 
 try:
     import tkinter as tk
@@ -178,16 +187,6 @@ Good luck to me !
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
     ENGINE_NAME = "Shinigami V.1.18.3 - Gen 2"
-# - dummies for when numpy and scipy are unavailable -
-    class nn:
-        Module = object
-        Conv2d = object
-        Linear = object
-        ReLU = object
-        Softmax = object
-        CrossEntropyLoss = object
-        MSELoss = object
-
     USE_LLM_EXPLANATIONS = True # On by Default.
     PIECE_VALUES = {
         chess.PAWN: 100,
@@ -479,6 +478,110 @@ class ShinigamiConfig:
         "The only thing you're promoting is my win rate.",
         ]
     }
+
+def uci_loop(self):
+    """Handles the full UCI protocol for integration with chess GUIs."""
+    board = chess.Board()
+
+    while True:
+        try:
+            command = input().strip()
+            parts = command.split()
+
+            if command == "uci":
+                print(f"id name {self.config.ENGINE_NAME}")
+                print(f"id author Tonmoy-KS")
+                # Add any configurable options your engine supports
+                print("option name UseNNUE type check default true")
+                print("uciok")
+
+            elif command == "isready":
+                print("readyok")
+
+            elif command == "ucinewgame":
+                # Clear hash tables and other game-specific data
+                self.eval_cache.clear()
+                self.pawn_hash_table.clear()
+                self.killer_moves.clear()
+                # If you have a transposition table, you would clear it here too.
+                board.reset()
+
+            elif command.startswith("position"):
+                if "startpos" in parts:
+                    board.reset()
+                    if "moves" in parts:
+                        moves_idx = parts.index("moves") + 1
+                        for move_uci in parts[moves_idx:]:
+                            board.push_uci(move_uci)
+                elif "fen" in parts:
+                    fen_idx = parts.index("fen") + 1
+                    # The FEN string can contain up to 6 parts
+                    fen_str = " ".join(parts[fen_idx : fen_idx + 6])
+                    board.set_fen(fen_str)
+                    if "moves" in parts:
+                        moves_idx = parts.index("moves") + 1
+                        for move_uci in parts[moves_idx:]:
+                            board.push_uci(move_uci)
+
+            elif command == "stop":
+                self.stop_search = True
+                if self.search_thread and self.search_thread.is_alive():
+                    self.search_thread.join()
+
+            elif command.startswith("go"):
+                if self.search_thread and self.search_thread.is_alive():
+                    self.stop_search = True
+                    self.search_thread.join()
+               self.stop_search = False
+
+                # Parse Time Controls and Search Parameters
+                depth = self.config.DEPTHS.get('hard', 40) # Default to a high depth
+
+                time_control = self.config.TIME_CONTROLS['hard'].copy()
+
+                movetime = -1
+                if 'movetime' in parts:
+                    movetime = int(parts[parts.index('movetime') + 1])
+                    time_control['base'] = movetime / 1000
+                    time_control['increment'] = 0
+
+                if 'wtime' in parts:
+                    wtime = int(parts[parts.index('wtime') + 1])
+                    btime = int(parts[parts.index('btime') + 1])
+                    winc = int(parts[parts.index('winc') + 1]) if 'winc' in parts else 0
+                    binc = int(parts[parts.index('binc') + 1]) if 'binc' in parts else 0
+
+                    if board.turn == chess.WHITE:
+                        time_control['base'] = wtime / 1000
+                        time_control['increment'] = winc / 1000
+                    else:
+                        time_control['base'] = btime / 1000
+                        time_control['increment'] = binc / 1000
+
+                if 'depth' in parts:
+                    depth = int(parts[parts.index('depth') + 1])
+
+                # --- Start search in a new thread ---
+                search_args = (board.copy(), depth, time_control)
+
+                def search_and_respond():
+                    # This function will be run in a separate thread
+                    best_move, score = self.iterative_deepening(*search_args)
+                    if best_move:
+                        print(f"bestmove {best_move.uci()}")
+
+                self.search_thread = threading.Thread(target=search_and_respond)
+                self.search_thread.start()
+
+            elif command == "quit":
+                self.stop_search = True
+                if self.search_thread and self.search_thread.is_alive():
+                    self.search_thread.join()
+                break
+
+        except Exception as e:
+            # Log errors without crashing the engine
+            logging.error(f"Error in UCI loop: {e} on command: '{command}'")
 
 class NNUE(nn.Module):
     """Neural Network for position evaluation using HalfKAv2 feature set."""
@@ -800,7 +903,7 @@ class TrainingModule:
         population = toolbox.population(n=6)
         for gen in range(generations):
             fitnesses = list(map(toolbox.evaluate, population))
-            for ind, fit in zip(population, 9-* fitnesses):
+            for ind, fit in zip(population, fitnesses):
                 ind.fitness.values = fit
             population = toolbox.select(population, len(population))
             offspring = [toolbox.clone(ind) for ind in population]
@@ -972,8 +1075,6 @@ class ShinigamiEngine:
                 logging.warning(f"Failed to load policy network weights: {e}, training new model")
 
         self.search_thread = None
-
-self.training_module.train_policy_network(self.policy_network)
         self.nodes_searched = 0
         self.cutoffs = 0
         self.tt_hits = 0
@@ -1620,6 +1721,8 @@ if black_queen_sq_list:
                 # Recapture extension
                 elif board.is_capture(move) and self.see(board, move) > 0:
                     extension = 1
+  
+          new_depth = depth - 1 - reduction + extension
 
             if idx == 0:
                 _, score = self.alpha_beta(board, new_depth, alpha, beta, not maximizing_player)
@@ -2009,109 +2112,6 @@ if black_queen_sq_list:
             else:
                 print("Invalid input. enter 'y' or 'n' or exit the game.")
 
-def uci_loop(self):
-    """Handles the full UCI protocol for integration with chess GUIs."""
-    board = chess.Board()
-
-    while True:
-        try:
-            command = input().strip()
-            parts = command.split()
-
-            if command == "uci":
-                print(f"id name {self.config.ENGINE_NAME}")
-                print(f"id author Tonmoy-KS")
-                # Add any configurable options your engine supports
-                print("option name UseNNUE type check default true")
-                print("uciok")
-
-            elif command == "isready":
-                print("readyok")
-
-            elif command == "ucinewgame":
-                # Clear hash tables and other game-specific data
-                self.eval_cache.clear()
-                self.pawn_hash_table.clear()
-                self.killer_moves.clear()
-                # If you have a transposition table, you would clear it here too.
-                board.reset()
-
-            elif command.startswith("position"):
-                if "startpos" in parts:
-                    board.reset()
-                    if "moves" in parts:
-                        moves_idx = parts.index("moves") + 1
-                        for move_uci in parts[moves_idx:]:
-                            board.push_uci(move_uci)
-                elif "fen" in parts:
-                    fen_idx = parts.index("fen") + 1
-                    # The FEN string can contain up to 6 parts
-                    fen_str = " ".join(parts[fen_idx : fen_idx + 6])
-                    board.set_fen(fen_str)
-                    if "moves" in parts:
-                        moves_idx = parts.index("moves") + 1
-                        for move_uci in parts[moves_idx:]:
-                            board.push_uci(move_uci)
-
-            elif command == "stop":
-                self.stop_search = True
-                if self.search_thread and self.search_thread.is_alive():
-                    self.search_thread.join()
-
-            elif command.startswith("go"):
-                if self.search_thread and self.search_thread.is_alive():
-                    self.stop_search = True
-                    self.search_thread.join()
-               self.stop_search = False
-
-                # Parse Time Controls and Search Parameters
-                depth = self.config.DEPTHS.get('hard', 40) # Default to a high depth
-
-                time_control = self.config.TIME_CONTROLS['hard'].copy()
-
-                movetime = -1
-                if 'movetime' in parts:
-                    movetime = int(parts[parts.index('movetime') + 1])
-                    time_control['base'] = movetime / 1000
-                    time_control['increment'] = 0
-
-                if 'wtime' in parts:
-                    wtime = int(parts[parts.index('wtime') + 1])
-                    btime = int(parts[parts.index('btime') + 1])
-                    winc = int(parts[parts.index('winc') + 1]) if 'winc' in parts else 0
-                    binc = int(parts[parts.index('binc') + 1]) if 'binc' in parts else 0
-
-                    if board.turn == chess.WHITE:
-                        time_control['base'] = wtime / 1000
-                        time_control['increment'] = winc / 1000
-                    else:
-                        time_control['base'] = btime / 1000
-                        time_control['increment'] = binc / 1000
-
-                if 'depth' in parts:
-                    depth = int(parts[parts.index('depth') + 1])
-
-                # --- Start search in a new thread ---
-                search_args = (board.copy(), depth, time_control)
-
-                def search_and_respond():
-                    # This function will be run in a separate thread
-                    best_move, score = self.iterative_deepening(*search_args)
-                    if best_move:
-                        print(f"bestmove {best_move.uci()}")
-
-                self.search_thread = threading.Thread(target=search_and_respond)
-                self.search_thread.start()
-
-            elif command == "quit":
-                self.stop_search = True
-                if self.search_thread and self.search_thread.is_alive():
-                    self.search_thread.join()
-                break
-
-        except Exception as e:
-            # Log errors without crashing the engine
-            logging.error(f"Error in UCI loop: {e} on command: '{command}'")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Shinigami Chess Engine")
@@ -2140,13 +2140,15 @@ if __name__ == "__main__":
         engine.training_module.retrain_nnue()
         if engine.policy_network: # Only train if policy network is enabled
             engine.training_module.train_policy_network(engine.policy_network)
+
     elif args.gui:
         if gui_available:
             gui = ChessGUI(engine)
             gui.root.mainloop()
         else:
-            print("ERROR: Cannot start GUI because tkinter is not available. Please install it or run in console mode.")
-        # Default to playing with AI if no specific mode is chosen
+            print("ERROR: Cannot start GUI")
+    else:
+        # Default to playing with AI if no other mode is chosen
         engine.play_chess_with_ai(chess.BLACK)
 
 # ——— End ———
