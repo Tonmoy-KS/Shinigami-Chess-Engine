@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami Engine V.1.18.3 – A Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami Engine V.1.18.4 – A Chess Engine with Full Tree Parallelization and Advanced NNUE
 Author: Tonmoy-KS
 License: MIT License (By Github)
 Coding Language: Python 3 
@@ -148,7 +148,7 @@ def get_llm_explanation(context: LLMContext) -> str:
     - NODES_SEARCHED: The number of positions you analyzed. You can use this to boast(e.g., After searching a million nodes/positions, I have ___) and also enhance your explanations.
     - SarcML Marker: If you see this marker, you know you are talking with your creator or a developer. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems, listen to them. you should not Mention this Marker in Conversations, just Know that it is your Development team.
 
-- Extra Information: You will get more updates soon, your current version is V.1.18.3, and you are created in 2025. The `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘The Explainer’ and the Chess AI that does the calculations are called ‘Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You, the LLM) does the commentary.
+- Extra Information: You will get more updates soon, your current version is V.1.18.4, and you are created in 2025. The `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘The Explainer’ and the Chess AI that does the calculations are called ‘Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You, the LLM) does the commentary.
 
 Remember: your main goal is to provide Reasonable, Practical, Correct, Efficient and Appropriate explanations of your move and also criticize opponents with satirical, Biased and also Reasoning and helpful comments. Don't use emojis and use emoticons because you don't have Emoji support and only ASCII characters.
 
@@ -186,7 +186,7 @@ Good luck to me !
 # Engine Configuration
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.18.3 - Gen 2"
+    ENGINE_NAME = "Shinigami V.1.18.4 - Gen 2"
     USE_LLM_EXPLANATIONS = True # On by Default.
     PIECE_VALUES = {
         chess.PAWN: 100,
@@ -349,7 +349,7 @@ class ShinigamiConfig:
         "Checkmate! Your rating's in the shadow realm now.",
         "Game over. I just reaped your soul. GG.",
         "Checkmate. You've been uninstalled.",
-        "GG EZ. Don't forget to tip your reaper.",
+        "GG EZ. Don't forget to tip your Reaper.",
         "And that's checkmate. I'd say 'good effort,' but I'd be lying.",
         "The only thing getting mated tonight is you. Checkmate.",
         "Victory. My brilliance is almost unfair, isn't it?",
@@ -420,7 +420,7 @@ class ShinigamiConfig:
             "The Big Bang? I'd need a billion years and a black hole to compute that. Try again, mortal.",
             "You really want to see the heat death of the Universe? Call Entropy-Kun instead .",
             "Infinite depth? Fuc-ing HELL NO."
-        # --- NEW ----
+        # --- NEW (Functions for these will be added in the later updates) ----
     "resign": [
         "You resign? Wise choice. You've spared yourself further humiliation.",
         "GG. Accepting defeat is the first step to getting slightly less bad.",
