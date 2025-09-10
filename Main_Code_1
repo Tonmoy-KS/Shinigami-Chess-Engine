@@ -18,30 +18,45 @@ from multiprocessing import Manager, Pool
 from collections import defaultdict
 import numpy as np
 import os
-from scipy.sparse import csr_matrix
 import sqlite3
 import argparse
-Import threading
-import openai
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import tkinter as tk
+import threading
 import cProfile
 import pstats
-import pyttsx3
 from typing import List, Dict, Optional
-from deap import base, creator, tools, algorithms 
+
+try:
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    from scipy.sparse import csr_matrix
+    torch_available = True
+except ImportError:
+    print("WARNING: 'torch' or 'scipy' not found. NNUE and Policy Network features will be disabled.")
+    print("         To enable them, run: pip install torch scipy")
+
+try:
+    import tkinter as tk
+    gui_available = True
+except ImportError:
+    print("WARNING: 'tkinter' not found or not supported on your system. The GUI will be disabled.")
+    print("         For many Linux systems, you can install it with: sudo apt-get install python3-tk")
+    gui_available = False
 
 # — Source Code —
 
 # TTS Engine Initialization
 try:
+    import pyttsx3
     tts_engine = pyttsx3.init()
     # Adjust voice properties
     tts_engine.setProperty('rate', 160)  # Speed of speech
     tts_available = True
     print("INFO: TTS engine initialized successfully.")
+except ImportError:
+    print("WARNING: 'pyttsx3' library not found. Voice output will be disabled.")
+    print("         To enable it, run: pip install pyttsx3")
+    tts_available = False
 except Exception as e:
     print(f"WARNING: pyttsx3 initialization failed: {e}. Voice output will be disabled.")
     tts_available = False
@@ -83,9 +98,9 @@ class LLMContext:
         self.eval_score_cp = eval_score
         self.nodes_searched = nodes_searched
         self.eval_source = eval_source
-
 try:
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") # for security.
+    import openai
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     if not OPENAI_API_KEY:
         print("WARNING: OPENAI_API_KEY environment variable not found. LLM explanations will be disabled.")
         openai_available = False
@@ -93,9 +108,10 @@ try:
         openai.api_key = OPENAI_API_KEY
         openai_available = True
 except ImportError:
-    print("WARNING: 'openai' library not found. LLM explanations will be disabled. Run 'pip install openai'")
-    openai_available = False
+    print("WARNING: 'openai' library not found. LLM explanations will be disabled.")
+    print("         To enable it, run: pip install openai")
 
+    openai_available = False
 def get_llm_explanation(context: LLMContext) -> str:
     """
     Calls the OpenAI API to generate an in-character chess explanation based on detailed context.
@@ -162,12 +178,22 @@ Good luck to me !
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
     ENGINE_NAME = "Shinigami V.1.18.3 - Gen 2"
+# - dummies for when numpy and scipy are unavailable -
+    class nn:
+        Module = object
+        Conv2d = object
+        Linear = object
+        ReLU = object
+        Softmax = object
+        CrossEntropyLoss = object
+        MSELoss = object
+
     USE_LLM_EXPLANATIONS = True # On by Default.
     PIECE_VALUES = {
         chess.PAWN: 100,
-        chess.KNIGHT: 520,
-        chess.BISHOP: 530,
-        chess.ROOK: 800,
+        chess.KNIGHT: 720,
+        chess.BISHOP: 730,
+        chess.ROOK: 7500,
         chess.QUEEN: 900,  # queen is less so the Engine can make Powerful sacrifices without being Held back by Piece Values
         # King Value not Omitted due to it not being used in Board Evaluation
     }
@@ -194,7 +220,7 @@ class ShinigamiConfig:
     }
     NNUE_FILE = os.getenv('SHINIGAMI_NNUE_FILE', 'nnue_weights.bin') # Add your own Path to your own File
     SYZYGY_PATH = os.getenv('SHINIGAMI_SYZYGY_PATH', './tablebases') # Add your own Path to your own File.
-    USE_NNUE = True # Enabled by Default, but disable it if you don't have PyTorch Installed
+       USE_NNUE = True if torch_available else False # Enabled by default, but requires PyTorch and Scipy
     NUM_PROCESSES = max(1, mp.cpu_count() // 2) # number of Processors being used
     PIECE_SQUARE_TABLES = {    # PSTs Evaluation 
         chess.PAWN: [
@@ -456,7 +482,8 @@ class ShinigamiConfig:
 
 class NNUE(nn.Module):
     """Neural Network for position evaluation using HalfKAv2 feature set."""
-    def __init__(self, input_size=98304, hidden_size=256):  
+    torch_available = False
+    def __init__(self, input_size=9000, hidden_size=256):  
         super(NNUE, self).__init__()
         self.input_layer = nn.Linear(input_size, hidden_size)
         self.hidden_layer = nn.Linear(hidden_size, hidden_size)
@@ -721,11 +748,13 @@ class TrainingModule:
             policy_network.train(dataset, epochs)
             logging.info("Policy network training completed")
 
-    def auto_feature_engineering(self, engine, generations=10, population_size=50):
+    def auto_feature_engineering(self, engine, generations=20, population_size=60):
         """Automated feature engineering and Mid-game adaptation using genetic algorithms."""
-        try: import deap
-        except ImportError:
-            logging.error("DEAP library required for feature engineering. Install with: pip install deap")
+        try:
+    from deap import base, creator, tools, algorithms
+    deap_available = True
+        if not deap_available:
+            logging.error("DEAP library not available, cannot perform feature engineering. Install with: pip install deap")
             return
         self.engine = engine
         creator.create("FitnessMax", base.Fitness, weights=(1.0,))
@@ -768,10 +797,10 @@ class TrainingModule:
         toolbox.register("mate", tools.cxBlend, alpha=0.5)
         toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=10, indpb=0.1)
         toolbox.register("select", tools.selTournament, tournsize=3)
-        population = toolbox.population(n=population_size)
+        population = toolbox.population(n=6)
         for gen in range(generations):
             fitnesses = list(map(toolbox.evaluate, population))
-            for ind, fit in zip(population, fitnesses):
+            for ind, fit in zip(population, 9-* fitnesses):
                 ind.fitness.values = fit
             population = toolbox.select(population, len(population))
             offspring = [toolbox.clone(ind) for ind in population]
@@ -2112,9 +2141,11 @@ if __name__ == "__main__":
         if engine.policy_network: # Only train if policy network is enabled
             engine.training_module.train_policy_network(engine.policy_network)
     elif args.gui:
-        gui = ChessGUI(engine)
-        gui.root.mainloop()
-    else:
+        if gui_available:
+            gui = ChessGUI(engine)
+            gui.root.mainloop()
+        else:
+            print("ERROR: Cannot start GUI because tkinter is not available. Please install it or run in console mode.")
         # Default to playing with AI if no specific mode is chosen
         engine.play_chess_with_ai(chess.BLACK)
 
