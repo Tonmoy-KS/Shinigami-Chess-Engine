@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shinigami Engine V.1.18.4 – A Chess Engine with Full Tree Parallelization and Advanced NNUE
+Shinigami Engine V.1.18.5 – A Chess Engine with Personality
 Author: Tonmoy-KS
 License: MIT License (By Github)
 Coding Language: Python 3 
@@ -148,7 +148,7 @@ def get_llm_explanation(context: LLMContext) -> str:
     - NODES_SEARCHED: The number of positions you analyzed. You can use this to boast(e.g., After searching a million nodes/positions, I have ___) and also enhance your explanations.
     - SarcML Marker: If you see this marker, you know you are talking with your creator or a developer. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems, listen to them. you should not Mention this Marker in Conversations, just Know that it is your Development team.
 
-- Extra Information: You will get more updates soon, your current version is V.1.18.4, and you are created in 2025. The `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘The Explainer’ and the Chess AI that does the calculations are called ‘Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You, the LLM) does the commentary.
+- Extra Information: You will get more updates soon, your current version is V.1.18.5, and you are created in 2025. The `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘The Explainer’ and the Chess AI that does the calculations are called ‘Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You, the LLM) does the commentary.
 
 Remember: your main goal is to provide Reasonable, Practical, Correct, Efficient and Appropriate explanations of your move and also criticize opponents with satirical, Biased and also Reasoning and helpful comments. Don't use emojis and use emoticons because you don't have Emoji support and only ASCII characters.
 
@@ -186,13 +186,13 @@ Good luck to me !
 # Engine Configuration
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
-    ENGINE_NAME = "Shinigami V.1.18.4 - Gen 2"
+    ENGINE_NAME = "Shinigami V.1.18.5 - Gen 2"
     USE_LLM_EXPLANATIONS = True # On by Default.
     PIECE_VALUES = {
         chess.PAWN: 100,
         chess.KNIGHT: 720,
         chess.BISHOP: 730,
-        chess.ROOK: 7500,
+        chess.ROOK: 750,
         chess.QUEEN: 900,  # queen is less so the Engine can make Powerful sacrifices without being Held back by Piece Values
         # King Value not Omitted due to it not being used in Board Evaluation
     }
@@ -632,93 +632,6 @@ class ShinigamiConfig:
         "Endgame time. I’m writing your epitaph now."
     ]
 }
-
-
-def uci_loop(self):
-    """Handles the full UCI protocol for integration with chess GUIs."""
-    board = chess.Board()
-
-    while True:
-        try:
-            command = input().strip()
-            parts = command.split()
-
-            if command == "uci":
-                print(f"id name {self.config.ENGINE_NAME}")
-                print(f"id author Tonmoy-KS")
-                # Add any configurable options your engine supports
-                print("option name UseNNUE type check default true")
-                print("uciok")
-
-            elif command == "isready":
-                print("readyok")
-
-            elif command == "ucinewgame":
-                # Clear hash tables and other game-specific data
-                self.eval_cache.clear()
-                self.pawn_hash_table.clear()
-                self.killer_moves.clear()
-                # If you have a transposition table, you would clear it here too.
-                board.reset()
-
-            elif command.startswith("position"):
-                if "startpos" in parts:
-                    board.reset()
-                    if "moves" in parts:
-                        moves_idx = parts.index("moves") + 1
-                        for move_uci in parts[moves_idx:]:
-                            board.push_uci(move_uci)
-                elif "fen" in parts:
-                    fen_idx = parts.index("fen") + 1
-                    # The FEN string can contain up to 6 parts
-                    fen_str = " ".join(parts[fen_idx : fen_idx + 6])
-                    board.set_fen(fen_str)
-                    if "moves" in parts:
-                        moves_idx = parts.index("moves") + 1
-                        for move_uci in parts[moves_idx:]:
-                            board.push_uci(move_uci)
-
-            elif command == "stop":
-                self.stop_search = True
-                if self.search_thread and self.search_thread.is_alive():
-                    self.search_thread.join()
-
-            elif command.startswith("go"):
-                if self.search_thread and self.search_thread.is_alive():
-                    self.stop_search = True
-                    self.search_thread.join()
-               self.stop_search = False
-
-                # Parse Time Controls and Search Parameters
-                depth = self.config.DEPTHS.get('hard', 40) # Default to a high depth
-
-                time_control = self.config.TIME_CONTROLS['hard'].copy()
-
-                movetime = -1
-                if 'movetime' in parts:
-                    movetime = int(parts[parts.index('movetime') + 1])
-                    time_control['base'] = movetime / 1000
-                    time_control['increment'] = 0
-
-                if 'wtime' in parts:
-                    wtime = int(parts[parts.index('wtime') + 1])
-                    btime = int(parts[parts.index('btime') + 1])
-                    winc = int(parts[parts.index('winc') + 1]) if 'winc' in parts else 0
-                    binc = int(parts[parts.index('binc') + 1]) if 'binc' in parts else 0
-
-                    if board.turn == chess.WHITE:
-                        time_control['base'] = wtime / 1000
-                        time_control['increment'] = winc / 1000
-                    else:
-                        time_control['base'] = btime / 1000
-                        time_control['increment'] = binc / 1000
-
-                if 'depth' in parts:
-                    depth = int(parts[parts.index('depth') + 1])
-
-                # --- Start search in a new thread ---
-                search_args = (board.copy(), depth, time_control)
-
                 def search_and_respond():
                     # This function will be run in a separate thread
                     best_move, score = self.iterative_deepening(*search_args)
@@ -1234,6 +1147,90 @@ class ShinigamiEngine:
         self.cutoffs = 0
         self.tt_hits = 0
         self.stop_search = False
+def uci_loop(self):
+    """Handles the full UCI protocol for integration with chess GUIs."""
+    board = chess.Board()
+
+    while True:
+        try:
+            command = input().strip()
+            parts = command.split()
+
+            if command == "uci":
+                print(f"id name {self.config.ENGINE_NAME}")
+                print(f"id author Tonmoy-KS")
+                # Add any configurable options your engine supports
+                print("option name UseNNUE type check default true")
+                print("uciok")
+
+            elif command == "isready":
+                print("readyok")
+
+            elif command == "ucinewgame":
+                # Clear hash tables and other game-specific data
+                self.eval_cache.clear()
+                self.pawn_hash_table.clear()
+                self.killer_moves.clear()
+                # If you have a transposition table, you would clear it here too.
+                board.reset()
+
+            elif command.startswith("position"):
+                if "startpos" in parts:
+                    board.reset()
+                    if "moves" in parts:
+                        moves_idx = parts.index("moves") + 1
+                        for move_uci in parts[moves_idx:]:
+                            board.push_uci(move_uci)
+                elif "fen" in parts:
+                    fen_idx = parts.index("fen") + 1
+                    # The FEN string can contain up to 6 parts
+                    fen_str = " ".join(parts[fen_idx : fen_idx + 6])
+                    board.set_fen(fen_str)
+                    if "moves" in parts:
+                        moves_idx = parts.index("moves") + 1
+                        for move_uci in parts[moves_idx:]:
+                            board.push_uci(move_uci)
+
+            elif command == "stop":
+                self.stop_search = True
+                if self.search_thread and self.search_thread.is_alive():
+                    self.search_thread.join()
+
+            elif command.startswith("go"):
+                if self.search_thread and self.search_thread.is_alive():
+                    self.stop_search = True
+                    self.search_thread.join()
+               self.stop_search = False
+
+                # Parse Time Controls and Search Parameters
+                depth = self.config.DEPTHS.get('hard', 40) # Default to a high depth
+
+                time_control = self.config.TIME_CONTROLS['hard'].copy()
+
+                movetime = -1
+                if 'movetime' in parts:
+                    movetime = int(parts[parts.index('movetime') + 1])
+                    time_control['base'] = movetime / 1000
+                    time_control['increment'] = 0
+
+                if 'wtime' in parts:
+                    wtime = int(parts[parts.index('wtime') + 1])
+                    btime = int(parts[parts.index('btime') + 1])
+                    winc = int(parts[parts.index('winc') + 1]) if 'winc' in parts else 0
+                    binc = int(parts[parts.index('binc') + 1]) if 'binc' in parts else 0
+
+                    if board.turn == chess.WHITE:
+                        time_control['base'] = wtime / 1000
+                        time_control['increment'] = winc / 1000
+                    else:
+                        time_control['base'] = btime / 1000
+                        time_control['increment'] = binc / 1000
+
+                if 'depth' in parts:
+                    depth = int(parts[parts.index('depth') + 1])
+
+                search_args = (board.copy(), depth, time_control)
+
 
     def _get_game_phase(self, board: chess.Board) -> str:
         """Determine the current game phase (opening, middlegame, endgame)."""
@@ -1283,7 +1280,7 @@ class ShinigamiEngine:
         for pawn_sq in white_pawns:
             file = chess.square_file(pawn_sq)
             if not any(board.piece_at(chess.square(f, r)) == chess.PAWN and chess.square_file(chess.square(f, r)) in [file - 1, file + 1] for f in range(8) for r in range(8)):
-                score -= 15  # Penalty for isolated pawns
+                score -= 20  # Penalty for isolated pawns
         for pawn_sq in black_pawns:
             file = chess.square_file(pawn_sq)
             if not any(board.piece_at(chess.square(f, r)) == chess.PAWN and chess.square_file(chess.square(f, r)) in [file - 1, file + 1] for f in range(8) for r in range(8)):
@@ -1302,11 +1299,11 @@ class ShinigamiEngine:
         for pawn_sq in white_pawns:
             if board.is_passed(chess.WHITE, pawn_sq):
                 rank = chess.square_rank(pawn_sq)
-                score += [0, 0, 0, 10, 20, 35, 60, 100][rank]  # Bonus for passed pawns based on rank
+                score -= [0, 0, 0, 0, 0, 20, 50, 100][rank]  # Bonus for passed pawns based on rank
         for pawn_sq in black_pawns:
             if board.is_passed(chess.BLACK, pawn_sq):
                 rank = chess.square_rank(pawn_sq)
-                score -= [0, 0, 0, 10, 20, 35, 60, 100][7 - rank]  # Bonus for passed pawns based on rank (from black's perspective)
+                score -= [0, 0, 0, 0, 0, 20, 50, 100][7 - rank]  # Bonus for passed pawns based on rank (from black's perspective)
 
         # Connected Passed Pawns
         white_passed = [sq for sq in white_pawns if board.is_passed(chess.WHITE, sq)]
@@ -1334,7 +1331,7 @@ class ShinigamiEngine:
 
                 if defenders <= 1:
                     # This pawn is a monster. Its value approaches a minor or even major piece.
-                    score += (150 + (rank - 5) * 100) / (defenders + 1)
+                    score += (100 + (rank - 5) * 100) / (defenders + 1)
 
         for pawn_sq in black_passed:
             rank = chess.square_rank(pawn_sq)
@@ -1345,7 +1342,7 @@ class ShinigamiEngine:
                     defenders += len(board.attackers(chess.WHITE, path_sq))
 
                 if defenders <= 1:
-                    score -= (150 + (2 - rank) * 100) / (defenders + 1)
+                    score -= (100 + (2 - rank) * 100) / (defenders + 1)
 
         # Backward Pawns
         for pawn_sq in white_pawns:
@@ -1494,7 +1491,7 @@ class ShinigamiEngine:
             if len(attacks) > 9:
                 score -= 10
 
-# Queen's Knight-Vision Blindspot: Look for potential knight forks on the enemy queen.
+            # Queen's Knight-Vision Blindspot:   Look for potential knight forks on the enemy queen.
 white_queen_sq_list = board.pieces(chess.QUEEN, chess.WHITE)
 if white_queen_sq_list:
     white_queen_sq = white_queen_sq_list[0]
@@ -1574,8 +1571,7 @@ if black_queen_sq_list:
                        board.piece_at(chess.square(file, chess.square_rank(square) + 1)) == chess.Piece(chess.ROOK, chess.BLACK):
                        score -= 10
 
-        # If in the middlegame with a slight advantage, favor trading queens
-        # to enter a more calculable phase.
+        # If in the middlegame with a slight advantage, favor trading queens to enter a less computationally expensive phase.
         if game_phase == "middlegame":
             has_white_queen = bool(board.pieces(chess.QUEEN, chess.WHITE))
             has_black_queen = bool(board.pieces(chess.QUEEN, chess.BLACK))
