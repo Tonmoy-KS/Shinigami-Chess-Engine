@@ -170,7 +170,7 @@ Good luck to me !
 
     try:
         response = openai.chat.completions.create(
-            model="Shinigami-GPT-1.9-Chess", # Currently this model. change the model if required. 
+            model="Chatgpt-4o", # Currently this model. change the model if required. 
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
