@@ -2074,7 +2074,7 @@ if black_queen_sq_list:
 
     def select_difficulty(self) -> str:
         """Select AI difficulty with confirmation for extreme modes and safeguard for The-Big-Bang."""
-        print("Select your Poison, i meant select your opponent AI's difficulty level.Official difficulties: 1) Easy, 2) Medium, 3) Hard, 4) God-Of-Death, 5) Puzzle Mode. Officially Jokes: 6) Masochist, 7) Dialing Satan's Number, 8) The Big Bang")
+        print("Select your Poison, Official difficulties: 1) Easy, 2) Medium, 3) Hard, 4) God-Of-Death, 5) Puzzle Mode | Officially Jokes: 6) Masochist, 7) Dialing Satan's Number, 8) The Big Bang")
         while True:
             difficulty_input = input("Enter 1, 2, 3, 4, 5, 6, 7, or 8: ").strip()
             difficulties = {
@@ -2097,7 +2097,7 @@ if black_queen_sq_list:
                     for i in range(3):
                         confirm = input(f"Confirm enabling {difficulty} (step {i+1}/3) [y/n]: ").strip().lower()
                         if confirm != 'y':
-                            print(f"{difficulty} is a extreme mode. Operation cancelled.")
+                            print(f"{difficulty} is an extreme mode. Operation cancelled.")
                             break
                     else:
                         print(f"Warning: {difficulty} enabled.")
@@ -2105,6 +2105,12 @@ if black_queen_sq_list:
                 return difficulty
             print("Invalid input. Try again.")
 
+    def trigger_trash_talk(self, category: str):
+        """Selects, prints, and speaks a random line from a trash talk category."""
+        if category in self.config.TRASH_TALK:
+            line = random.choice(self.config.TRASH_TALK[category])
+            print(line)
+            speak_text(line)
 
     def play_chess_with_ai(self, ai_color: chess.Color):
         """Main game loop for human vs. AI play in console mode with LLM and TTS."""
@@ -2118,17 +2124,20 @@ if black_queen_sq_list:
         print(f"Opening Book: {'Loaded' if self.opening_book else 'Not Loaded'}")
         logging.info(f"Game started: AI as {'Black' if ai_color == chess.BLACK else 'White'}, Difficulty: {difficulty}")
 
-        # Clear evaluation cache at the start of a new game
         self.eval_cache.clear()
+        endgame_announced = False
 
         while not board.is_game_over():
             print(f"\n{board}\n")
+
+            if self._get_game_phase(board) == "endgame" and not endgame_announced:
+                self.trigger_trash_talk("endgame")
+                endgame_announced = True
+            
             player = "White" if board.turn == chess.WHITE else "Black"
             print(f"{player}, It's your turn. Don't bore me.")
 
-            # puzzles 
             if difficulty == "puzzle":
-                # This block handles the self-contained puzzle mode.
                 puzzle_move, puzzle_task = self.generate_puzzle(board)
                 if not puzzle_move:
                     print("No more puzzles available. Switching to medium.")
@@ -2138,7 +2147,6 @@ if black_queen_sq_list:
                 else:
                     print(f"Puzzle Mode: {puzzle_task}\n")
                     speak_text(puzzle_task)
-                    # Loop for the current puzzle
                     while True:
                         move_input = input("Your move (or 'retry'/'exit'): ").strip().lower()
                         if move_input == "exit":
@@ -2149,8 +2157,7 @@ if black_queen_sq_list:
                             board.set_fen(self.puzzle_database[next(i for i, p in enumerate(self.puzzle_database) if p['move'] == puzzle_move.uci())]['fen'])
                             print(f"Retrying puzzle: {puzzle_task}\n")
                             speak_text("Fine. Try it again… dumbass")
-                            break # Breaks inner puzzle loop to reprint the board
-
+                            break
                         try:
                             move = board.parse_san(move_input)
                             if move == puzzle_move:
@@ -2159,8 +2166,7 @@ if black_queen_sq_list:
                                 logging.info("Puzzle solved correctly")
                                 if input().strip().lower() != 'y':
                                     return
-                                # If yes, the outer loop will generate a new puzzle
-                                break 
+                                break
                             else:
                                 wrong_move_text = "Wrong move! 'retry'?"
                                 print(wrong_move_text)
@@ -2170,7 +2176,7 @@ if black_queen_sq_list:
                             invalid_text = random.choice(self.config.TRASH_TALK["invalid"])
                             print(invalid_text)
                             speak_text(invalid_text)
-                    continue # Continue to the next iteration of the main game loop
+                    continue
 
             # Shinigami's Turn
             if board.turn == ai_color:
@@ -2179,17 +2185,41 @@ if black_queen_sq_list:
 
                 if move:
                     opponent_move = board.peek() if board.move_stack else None
+                    
+                    # Store move info before pushing, to analyze its effect
+                    was_castle = board.is_castling(move)
+                    moved_piece = board.piece_at(move.from_square)
+                    
                     board.push(move)
                     logging.info(f"AI move: {move}")
+                    
+                    # Announce special moves and tactics performed by shinigami
+                    if was_castle:
+                        self.trigger_trash_talk("castle")
+                    elif move.promotion:
+                        self.trigger_trash_talk("promotion")
+                    else:
+                        # Check if the AI's move pinned one of the player's pieces
+                        player_color = not ai_color
+                        pin_detected = False
+                        for piece_type in [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]:
+                            for piece_square in board.pieces(piece_type, player_color):
+                                if board.is_pinned(player_color, piece_square):
+                                    self.trigger_trash_talk("pin")
+                                    pin_detected = True
+                                    break
+                            if pin_detected:
+                                break
+                        
+                        # Check if the AI's move was a discovered check (proxy for skewer)
+                        if board.is_check() and moved_piece is not None and moved_piece.piece_type != chess.KING and not any(s for s in board.attackers(player_color, board.king(board.turn)) if s == move.to_square):
+                             self.trigger_trash_talk("skewer")
 
-
-                    if self.config.USE_LLM_EXPLANATIONS: 
-                        # Determine the source of evaluation for the LLM
+                    # Standard LLM explanation and basic check/capture taunts
+                    if self.config.USE_LLM_EXPLANATIONS:
                         eval_source = "Classical Evaluation"
                         if self.config.USE_NNUE and self.nnue: eval_source = "NNUE"
                         if self.tablebase and len(board.piece_map()) <= 7: eval_source = "Syzygy Tablebase"
-
-                        # Create context and get explanation from the LLM
                         llm_context = LLMContext(
                             fen=board.fen(), my_move=move, opponent_move=opponent_move,
                             opponent_name="Human", eval_score=score,
@@ -2197,50 +2227,54 @@ if black_queen_sq_list:
                         )
                         explanation = get_llm_explanation(llm_context)
                         print(f"\n[Shinigami]: {explanation}\n")
-                        speak_text(explanation) # Speak the LLM's thoughts
+                        speak_text(explanation)
 
-                    # Speak additional trash talk for checks or captures
-                    # This part is now outside the LLM check, so it's always active and fast
                     if board.is_check():
-                        trash_talk = random.choice(self.config.TRASH_TALK["check"])
-                        print(trash_talk)
-                        speak_text(trash_talk)
+                        self.trigger_trash_talk("check")
                     elif board.is_capture(move):
-                        trash_talk = random.choice(self.config.TRASH_TALK["capture"])
-                        print(trash_talk)
-                        speak_text(trash_talk)
+                        self.trigger_trash_talk("capture")
 
-            # player's Turn
+            # Player's Turn
             else:
                 move_input = input("play your move: ").strip().lower()
                 if move_input == "quit":
-                    speak_text("Running away? Wise choice.")
+                    self.trigger_trash_talk("resign")
                     break
                 try:
+                    eval_before = self.evaluate_position(board)
                     move = board.parse_san(move_input)
                     board.push(move)
                     self.training_module.learn_from_opponent(board, move, board.result() if board.is_game_over() else "ongoing")
+                    
+                    # Check if the player made a good move (from the shinigami's perspective)
+                    eval_after = self.evaluate_position(board)
+                    eval_change = eval_after - eval_before
+                    player_is_white = (ai_color == chess.BLACK)
+
+                    # A good move won't worsen the player's position significantly.
+                    if (player_is_white and eval_change > -50) or (not player_is_white and eval_change < 50):
+                        # Only praise occasionally
+                        if random.random() < 0.45:
+                           self.trigger_trash_talk("good_move")
+
                 except ValueError:
-                    invalid_text = random.choice(self.config.TRASH_TALK["invalid"])
-                    print(invalid_text)
-                    speak_text(invalid_text)
+                    self.trigger_trash_talk("invalid")
                     logging.warning(f"Invalid move input: {move_input}")
 
         # End of Game
         result = board.result()
-        end_talk = ""
-        if result == "1-0":
-            end_talk = random.choice(self.config.TRASH_TALK["loss"])
+        end_talk_category = "draw"
+        if result == "1-0": # White won
+            end_talk_category = "win" if ai_color == chess.WHITE else "loss"
             logging.info("Game ended: White wins")
-        elif result == "0-1":
-            end_talk = random.choice(self.config.TRASH_TALK["win"])
+        elif result == "0-1": # Black won
+            end_talk_category = "win" if ai_color == chess.BLACK else "loss"
             logging.info("Game ended: Black wins")
-        else:
-            end_talk = random.choice(self.config.TRASH_TALK["draw"])
-            logging.info("Game ended: Draw")
-
-        print(end_talk)
-        speak_text(end_talk) # Announce the final result
+        else: # Draw
+            end_talk_category = "draw"
+            logging.info(f"Game ended: Draw ({result})")
+        
+        self.trigger_trash_talk(end_talk_category)
 
     def select_llm_preference(self) -> None:
         """To make the Explanations Optional in the goal of tackling the API delay problem. It asks the user if they want to enable LLM explanations and updates the config."""
