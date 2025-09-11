@@ -295,7 +295,7 @@ class ShinigamiConfig:
         ]
     }
 # Trash talk dictionary for when LLM is unavailable. 
-TRASH_TALK = {
+    TRASH_TALK = {
     "move": [
         "Keep up, or I'll Ctrl+Alt+Del your whole board.",
         "Your moves are so predictable. I'm playing blindfolded.",
