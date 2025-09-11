@@ -1299,7 +1299,7 @@ def uci_loop(self):
         for pawn_sq in white_pawns:
             if board.is_passed(chess.WHITE, pawn_sq):
                 rank = chess.square_rank(pawn_sq)
-                score -= [0, 0, 0, 0, 0, 20, 50, 100][rank]  # Bonus for passed pawns based on rank
+                score += [0, 0, 0, 0, 0, 20, 50, 100][rank]  # Bonus for passed pawns based on rank
         for pawn_sq in black_pawns:
             if board.is_passed(chess.BLACK, pawn_sq):
                 rank = chess.square_rank(pawn_sq)
