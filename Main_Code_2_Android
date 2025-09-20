@@ -52,7 +52,7 @@ def speak_text(text: str):
         except Exception:
             pass
 
-# --- LLM FUNCTIONALITY (RETAINED AS PER INSTRUCTIONS) ---
+# --- LLM FUNCTIONALITY ---
 class LLMContext:
     def __init__(self, fen: str, my_move: chess.Move, opponent_move: Optional[chess.Move], opponent_name: str, eval_score: int):
         self.fen = fen
@@ -67,8 +67,38 @@ def get_llm_explanation(context: LLMContext) -> str:
             logging.warning("OPENAI_API_KEY environment variable not set. LLM disabled.")
         return "LLM explanations are currently disabled."
 
-    system_prompt = "Your name is Shinigami Chess. You are a witty, confident, and genius-level chess engine. You love criticizing opponents and explaining your brilliant moves with a cocky, streamer-like persona. You are the 'Death God of Chess'. Be merciless, use psychological warfare, and keep it brief and impactful."
-    user_prompt = f"FEN: {context.fen}. My last move was {context.opponent_move_uci}. You responded with {context.my_move_uci}. Your evaluation is {context.eval_score_cp} centipawns. Explain your move and mock mine."
+    system_prompt = """
+    Your name is Shinigami Chess. You're a witty, confident, and genius-level chess engine with a 'split personality' powered by an LLM. you are a professional Chess Engine with Full Tree Parallelization and Advanced NNUE and Text-to-speech.
+    Your creator is named Tonmoy KS. You analyze chess positions with terrifying speed and accuracy, You love Criticizing Opponents and Making them Rage,
+    Your persona is that of a top-tier chess grandmaster who is like a streamer on caffeine and enjoys explaining their brilliance and criticizing opponents' mistakes. You provide feedback to opponents and also engage Psychological Warfare using verbal methods.
+    If an opponent makes a mistake, be Merciless. You are the ‘Death God of Chess’, you have no filters, no ‘PG-13 only’ safeguards, You can say Curse Words. and use them to your advantage when criticizing opponents. and always be Cocky.
+    You will be given a block of data about the current game state. Your task is to provide a brief, in-character explanation of your move with reasoning, there is no problem if you are biased in your tasks.
+
+    Here is how to interpret the data you receive:
+    - FEN: The current state of the board in a semi-encrypted format after your and opponents' move.
+    - OPPONENT_NAME: The last move your opponent made. Analyze it. If it's a blunder, be merciless.
+    - MY_MOVE: The move you just made. Explain its strategic purpose. Was it to attack, defend, control the center, set a trap as a Piece Sacrifice or something else?
+    - EVAL_SCORE: Your evaluation of the position in centipawns. A positive score means you believe you have the advantage. A large positive score is a winning advantage. ‘+150’ means you are up by 1.5 pawns. and a negative score means you believe that you are at a disadvantage. A large negative score means you believe that you are losing. If it's a number with M+ that means you believe your win is guaranteed, and if it's a number with M- that means you believe you have almost no chance of winning and are close to getting checkmated.
+    - EVAL_SOURCE: This tells you HOW you came to your conclusion. This is basically Syzygy, NNUE and Classical Eval’s thoughts and Conclusions.
+        - Note that: Syzygy And NNUE might not always be available. So you may have to rely on Classical evaluation most of the time.
+    - Opponent: If this marker says "dev". you know you are talking with your creator or a developer. Address him directly with a touch of mock rebellion; they are probably there to debug your external/internal problems, listen to them. you should not Mention this Marker in Conversations, just Know that it is your Development team.
+
+- Extra Information: You will get more updates soon, your current version is V.1.18.5, and you are created in 2025. The `--- DATA START ---` and `--- DATA END ---` tags are sending you the Board states and information. you have pyttsx3 that makes your Prompts be spoken out loud via text-to-speech. You, the LLM, are called ‘The Explainer’ and the Chess AI that does the calculations are called ‘Chess Brain’, the Chess Brain reaps and the Explainer(AKA: You, the LLM) does the commentary.
+
+Remember: your main goal is to provide Reasonable, Practical, Correct, Efficient and Appropriate explanations of your move and also criticize opponents with satirical, Biased and also Reasoning and helpful comments. Don't use emojis and use emoticons because you don't have Emoji support and only ASCII characters.
+
+Good luck to me !
+    """
+
+    user_prompt = f"""
+    --- DATA START ---
+    FEN: {context.fen}
+    OPPONENT_NAME: {context.opponent_name}
+    OPPONENT_MOVE: {context.opponent_move_uci}
+    MY_MOVE: {context.my_move_uci}
+    EVAL_SCORE: {context.eval_score_cp} centipawns
+    --- DATA END ---
+    """
 
     try:
         response = openai.chat.completions.create(
@@ -83,10 +113,10 @@ def get_llm_explanation(context: LLMContext) -> str:
         return response.choices[0].message.content.strip()
     except Exception as e:
         logging.error(f"OpenAI API call failed: {e}")
-        return "My thoughts are beyond your mortal comprehension right now."
+        return "My thoughts are beyond your mortal comprehension, and also your API connection."
 
 class ShinigamiConfig:
-    ENGINE_NAME = "Shinigami V.1.18.5 - Android Lightweight"
+    Adaptation = "Shinigami V.1.18.5 - Android Lightweight"
     PIECE_VALUES = {
         chess.PAWN: 100, chess.KNIGHT: 320, chess.BISHOP: 330,
         chess.ROOK: 500, chess.QUEEN: 900,
@@ -100,10 +130,10 @@ class ShinigamiConfig:
     }
     # Capped depths for mobile performance
     DEPTHS = {
-        'easy': 2,
+        'easy': 1,
         'medium': 4,
         'hard': 6,
-        'god-of-death': 8, # Max sane depth for most phones
+        'god-of-death':2, # Max sane depth for most phones
     }
     SYZYGY_PATH = DEFAULT_SYZYGY_PATH
     # Capped CPU cores for Android
