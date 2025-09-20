@@ -345,3 +345,5 @@ if __name__ == "__main__":
 
     engine = ShinigamiEngine()
     engine.play_chess_with_ai(chess.BLACK)
+
+# --- End ---
