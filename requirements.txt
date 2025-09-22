@@ -1,0 +1,7 @@
+python-chess
+numpy
+scipy
+openai
+torch
+pyttsx3
+deap
