@@ -169,7 +169,8 @@ Do not claim as your own; fork, mod, and contribute instead!
 [https://github.com/InSkitz]
 2) [Dakter-Tech](https://github.com/dakther-tech) 
 [https://github.com/dakther-tech]
-3) [Shanjid-KS](https://github.com/shanjid-KS) 
+3) [Kyber-Tech](https://github.com/Kyber-Tech) [https://github.com/Kyber-Tech]
+4) [Shanjid-KS](https://github.com/shanjid-KS) 
 [https://github.com/shanjid-KS]
 
 ---
