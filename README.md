@@ -12,7 +12,7 @@
 ![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-0074D9?labelColor=gray)
 
 **Shinigami V.1.18.5 – Gen 2 Edition**  
-_Shinigami Chess engine is a UX-focused chess engine in python for the goal of teaching beginner to intermediate developers the basics of modern chess engine architecture._
+_A UX-focused chess engine for the goal of teaching beginner to intermediate developers the basics of modern chess engine architecture._
 
 ---
 
