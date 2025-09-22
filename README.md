@@ -8,7 +8,7 @@
 # Shinigami Chess Engine (V.1.18.5 – Gen 2 Edition)
 ![MIT License](https://img.shields.io/badge/license-MIT-FF4136?labelColor=gray) ![Python](https://img.shields.io/badge/language-Python_3.8+-2ECC40?labelColor=gray) ![Creator](https://img.shields.io/badge/Creator_Name-Tonmoy_KS-0074D9?labelColor=gray)
 
-_A UX-focused chess engine for the goalw of teaching beginner to intermediate developers the basics of modern chess engine architecture._
+_A UX-focused chess engine for the goal of teaching beginner to intermediate developers the basics of modern chess engine architecture._
 
 ---
 
