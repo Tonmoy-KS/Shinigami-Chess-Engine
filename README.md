@@ -1,11 +1,7 @@
 
 # Shinigami Chess Engine
 
----
-
-
 ![Shinigami Engine Logo](https://raw.githubusercontent.com/Tonmoy-KS/Shinigami-Chess-Engine/main/organizedcode/assets/file_00000000997061fab3e884fe1f6f002d_Shinigami_Logo.png)
-#### Shinigami Chess Engine 
 
 ---
 
