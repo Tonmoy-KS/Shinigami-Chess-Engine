@@ -1,0 +1,398 @@
+# Shinigami-GPT-1.9.py
+import os
+import math
+import time
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
+# --- Hyperparameters ---
+BATCH_SIZE = 16
+BLOCK_SIZE = 2096  # max context length
+MAX_ITERS = 6000
+EVAL_INTERVAL = 500
+LEARNING_RATE = 1e-5
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+EVAL_ITERS = 450
+N_EMBED = 1024
+N_HEAD = 16
+N_KV_HEADS = 8
+N_LAYER = 12
+DROPOUT = 0.15
+CLIP_GRAD = 1.0
+WEIGHT_DECAY = 0.1
+WINDOW_SIZE = 1024
+
+# --- LR schedule ---
+WARMUP_ITERS = 200
+LR_DECAY_ITERS = MAX_ITERS
+MIN_LR = 1e-6
+
+# --- Training toggles ---
+USE_AMP = True  # mixed precision (fp16/bf16 if available)
+USE_CHECKPOINT = False  # gradient checkpointing
+EMA_DECAY = 0.999  # 0 to disable EMA
+CKPT_PATH = "checkpoint_v2.pt"
+
+# --- Sampling defaults ---
+SAMPLE_TEMPERATURE = 0.8
+SAMPLE_TOP_K = 50
+SAMPLE_TOP_P = 0.95
+
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
+print(f"Using device: {DEVICE}")
+
+# --- Data Loading (Byte-level) ---
+# Reads file bytes directly; vocab is 0..255.
+if not os.path.exists("input.txt"):
+    print("Error: 'input.txt' not found.")
+    print("Download e.g.: https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt")
+    raise SystemExit(1)
+
+with open("input.txt", "rb") as f:
+    raw_bytes = f.read()
+
+vocab_size = 256
+
+def encode_bytes(bs: bytes):
+    return list(bs)
+
+def decode_bytes(ids):
+    return bytes(ids)
+
+data_all = torch.tensor(encode_bytes(raw_bytes), dtype=torch.long)
+n = int(0.9 * len(data_all))
+train_data = data_all[:n]
+val_data = data_all[n:]
+
+def get_batch(split):
+    source = train_data if split == 'train' else val_data
+    ix = torch.randint(len(source) - BLOCK_SIZE - 1, (BATCH_SIZE,))
+    x = torch.stack([source[i:i+BLOCK_SIZE] for i in ix])
+    y = torch.stack([source[i+1:i+BLOCK_SIZE+1] for i in ix])
+    return x.to(DEVICE), y.to(DEVICE)
+
+@torch.no_grad()
+def estimate_loss(model, ema_model=None):
+    target_model = ema_model if ema_model is not None else model
+    target_model.eval()
+    out = {}
+    for split in ['train', 'val']:
+        losses = torch.zeros(EVAL_ITERS)
+        for k in range(EVAL_ITERS):
+            X, Y = get_batch(split)
+            _, loss = target_model(X, Y)
+            losses[k] = loss.item()
+        out[split] = losses.mean()
+    target_model.train()
+    return out
+
+def get_lr(it):
+    # 1) linear warmup for WARMUP_ITERS steps
+    if it < WARMUP_ITERS:
+        return LEARNING_RATE * it / max(1, WARMUP_ITERS)
+    # 2) if it > LR_DECAY_ITERS, return min learning rate
+    if it > LR_DECAY_ITERS:
+        return MIN_LR
+    # 3) in between, use cosine decay down to min learning rate
+    decay_ratio = (it - WARMUP_ITERS) / (LR_DECAY_ITERS - WARMUP_ITERS)
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+    return MIN_LR + coeff * (LEARNING_RATE - MIN_LR)
+
+# --- Model ---
+class RMSNorm(nn.Module):
+    def __init__(self, dim: int, eps: float = 1e-5):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(dim))
+
+    def forward(self, x):
+        x_float = x.float()
+        normed = x_float * torch.rsqrt(x_float.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        return (normed.type_as(x)) * self.weight
+
+def rotate_half(x):
+    x1, x2 = x[..., :x.shape[-1] // 2], x[..., x.shape[-1] // 2:]
+    return torch.cat((-x2, x1), dim=-1)
+
+def apply_rope(x, cos, sin):
+    return (x * cos) + (rotate_half(x) * sin)
+
+class RoPECache:
+    def __init__(self, head_size, max_seq_len, base=10000.0, device=DEVICE):
+        assert head_size % 2 == 0, "head_size must be even for RoPE."
+        self.head_size = head_size
+        self.max_seq_len = max_seq_len
+        self.base = base
+        self.device = device
+        self._build()
+
+    def _build(self):
+        hs = self.head_size
+        T = self.max_seq_len
+        inv_freq = 1.0 / (self.base ** (torch.arange(0, hs, 2, device=self.device).float() / hs))
+        t = torch.arange(T, device=self.device).float()
+        freqs = torch.einsum('t,f->tf', t, inv_freq)
+        cos = torch.cos(freqs).repeat_interleave(2, dim=-1)
+        sin = torch.sin(freqs).repeat_interleave(2, dim=-1)
+        self.cos = cos[None, None, :, :]
+        self.sin = sin[None, None, :, :]
+
+    def get(self, T):
+        if T > self.max_seq_len:
+            self.max_seq_len = T
+            self._build()
+        return self.cos[:, :, :T, :], self.sin[:, :, :T, :]
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, num_heads, num_kv_heads, head_size):
+        super().__init__()
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_size = head_size
+        self.n_embed = num_heads * head_size
+        self.n_kv_embed = num_kv_heads * head_size
+        self.q_proj = nn.Linear(self.n_embed, self.n_embed, bias=False)
+        self.k_proj = nn.Linear(self.n_embed, self.n_kv_embed, bias=False)
+        self.v_proj = nn.Linear(self.n_embed, self.n_kv_embed, bias=False)
+        self.proj = nn.Linear(self.n_embed, self.n_embed)
+        self.dropout = nn.Dropout(DROPOUT)
+        self.rope = RoPECache(head_size, BLOCK_SIZE, device=DEVICE)
+
+    def forward(self, x):
+        B, T, C = x.shape
+        q = self.q_proj(x).view(B, T, self.num_heads, self.head_size).transpose(1, 2)
+        k = self.k_proj(x).view(B, T, self.num_kv_heads, self.head_size).transpose(1, 2)
+        v = self.v_proj(x).view(B, T, self.num_kv_heads, self.head_size).transpose(1, 2)
+        cos, sin = self.rope.get(T)
+        q = apply_rope(q, cos, sin)
+        k = apply_rope(k, cos, sin)
+        if self.num_kv_heads < self.num_heads:
+            num_repeats = self.num_heads // self.num_kv_heads
+            k = k.repeat_interleave(num_repeats, dim=1)
+            v = v.repeat_interleave(num_repeats, dim=1)
+
+        # Sliding window attention mask
+        mask = torch.ones(T, T, device=DEVICE).tril(diagonal=0)
+        mask = mask.triu(diagonal=-WINDOW_SIZE)
+        mask = mask == 0
+
+        out = F.scaled_dot_product_attention(
+            q, k, v,
+            attn_mask=mask,
+            dropout_p=DROPOUT if self.training else 0.0,
+            is_causal=False  # Causal mask is now part of the sliding window mask
+        )
+        out = out.transpose(1, 2).contiguous().view(B, T, C)
+        out = self.proj(out)
+        return out
+
+class SwiGLU(nn.Module):
+    def __init__(self, n_embed, hidden_dim=None):
+        super().__init__()
+        if hidden_dim is None:
+            hidden_dim = int(2/3 * 4 * n_embed)
+        self.w1 = nn.Linear(n_embed, hidden_dim, bias=False)
+        self.w2 = nn.Linear(n_embed, hidden_dim, bias=False)
+        self.w3 = nn.Linear(hidden_dim, n_embed, bias=False)
+        self.dropout = nn.Dropout(DROPOUT)
+
+    def forward(self, x):
+        return self.dropout(self.w3(F.silu(self.w1(x)) * self.w2(x)))
+
+class TransformerBlock(nn.Module):
+    def __init__(self, n_embed, n_head, n_kv_heads):
+        super().__init__()
+        head_size = n_embed // n_head
+        assert head_size % 2 == 0, "For RoPE, head_size must be even."
+        self.ln1 = RMSNorm(n_embed)
+        self.sa = MultiHeadAttention(n_head, n_kv_heads, head_size)
+        self.ln2 = RMSNorm(n_embed)
+        self.ffwd = SwiGLU(n_embed)
+
+    def forward(self, x):
+        x = x + self.sa(self.ln1(x))
+        x = x + self.ffwd(self.ln2(x))
+        return x
+
+class LanguageModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.token_embedding_table = nn.Embedding(vocab_size, N_EMBED)
+        self.blocks = nn.Sequential(
+            *[TransformerBlock(N_EMBED, N_HEAD, N_KV_HEADS) for _ in range(N_LAYER)]
+        )
+        self.ln_f = RMSNorm(N_EMBED)
+        self.lm_head = nn.Linear(N_EMBED, vocab_size, bias=False)
+        self.lm_head.weight = self.token_embedding_table.weight
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            nn.init.xavier_uniform_(module.weight)
+            if getattr(module, "bias", None) is not None:
+                nn.init.constant_(module.bias, 0)
+        elif isinstance(module, nn.Embedding):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def forward(self, idx, targets=None):
+        B, T = idx.shape
+        tok_emb = self.token_embedding_table(idx)
+        x = self.blocks(tok_emb)
+        x = self.ln_f(x)
+        logits = self.lm_head(x)
+        loss = None
+        if targets is not None:
+            loss = F.cross_entropy(logits.view(B*T, vocab_size), targets.view(B*T))
+        return logits, loss
+
+    @torch.no_grad()
+    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None, top_p=None):
+        self.eval()
+        for _ in range(max_new_tokens):
+            idx_cond = idx[:, -BLOCK_SIZE:]
+            logits, _ = self(idx_cond)
+            logits = logits[:, -1, :] / max(temperature, 1e-6)
+            if top_k is not None:
+                top_k = max(1, top_k)
+                v, _ = torch.topk(logits, top_k)
+                logits[logits < v[:, [-1]]] = -float('inf')
+            if top_p is not None and 0 < top_p < 1.0:
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+                cumulative_probs = torch.softmax(sorted_logits, dim=-1).cumsum(dim=-1)
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove[..., 0] = 0
+                indices_to_remove = torch.zeros_like(logits, dtype=torch.bool)
+                indices_to_remove.scatter_(1, sorted_indices, sorted_indices_to_remove)
+                logits = logits.masked_fill(indices_to_remove, -float('inf'))
+            probs = F.softmax(logits, dim=-1)
+            idx_next = torch.multinomial(probs, num_samples=1)
+            idx = torch.cat((idx, idx_next), dim=1)
+        return idx
+
+# --- EMA wrapper ---
+class EMA:
+    def __init__(self, model, decay=0.999):
+        self.decay = decay
+        self.shadow = {}
+        if decay > 0:
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    self.shadow[name] = param.detach().clone()
+
+    def update(self, model):
+        if self.decay <= 0: return
+        for name, param in model.named_parameters():
+            if not param.requires_grad:
+                continue
+            assert name in self.shadow
+            self.shadow[name].mul_(self.decay).add_(param.detach(), alpha=1.0 - self.decay)
+
+    def apply_to(self, model):
+        if self.decay <= 0: return
+        with torch.no_grad():
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    param.copy_(self.shadow[name])
+
+# --- Training ---
+def save_checkpoint(model, optimizer, scaler, ema, iter_num):
+    ckpt = {
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "iter_num": iter_num,
+        "scaler": scaler.state_dict() if scaler is not None else None,
+        "ema": {k: v.cpu() for k, v in (ema.shadow if ema else {}).items()},
+        "config": {
+            "N_EMBED": N_EMBED, "N_HEAD": N_HEAD, "N_KV_HEADS": N_KV_HEADS,
+            "N_LAYER": N_LAYER, "BLOCK_SIZE": BLOCK_SIZE, "vocab_size": vocab_size
+        }
+    }
+    torch.save(ckpt, CKPT_PATH)
+
+def load_checkpoint(model, optimizer=None, scaler=None, ema=None):
+    if not os.path.exists(CKPT_PATH):
+        return 0
+    ckpt = torch.load(CKPT_PATH, map_location=DEVICE)
+    model.load_state_dict(ckpt["model"])
+    if optimizer and "optimizer" in ckpt and ckpt["optimizer"]:
+        optimizer.load_state_dict(ckpt["optimizer"])
+    if scaler is not None and ckpt.get("scaler") is not None:
+        scaler.load_state_dict(ckpt["scaler"])
+    if ema is not None and ckpt.get("ema"):
+        ema.shadow = {k: v.to(DEVICE) for k, v in ckpt["ema"].items()}
+    return ckpt.get("iter_num", 0)
+
+def main():
+    model = LanguageModel().to(DEVICE)
+    ema = EMA(model, EMA_DECAY) if EMA_DECAY > 0 else None
+
+    print(f"{sum(p.numel() for p in model.parameters())/1e6:.2f}M parameters")
+
+    optimizer = torch.optim.Lion(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP and DEVICE.startswith("cuda"))
+    start_iter = load_checkpoint(model, optimizer, scaler, ema)
+
+    model.train()
+    t0 = time.time()
+    for iter_num in range(start_iter, MAX_ITERS):
+        if iter_num % EVAL_INTERVAL == 0 or iter_num == MAX_ITERS - 1:
+            if ema and ema.shadow:
+                tmp = LanguageModel().to(DEVICE)
+                tmp.load_state_dict(model.state_dict())
+                ema.apply_to(tmp)
+                losses = estimate_loss(tmp)
+                del tmp
+            else:
+                losses = estimate_loss(model)
+            dt = time.time() - t0
+            tokens_per_sec = (EVAL_ITERS * BATCH_SIZE * BLOCK_SIZE) / max(1e-6, dt)
+            print(f"step {iter_num}: val loss {losses['val']:.4f}, train loss {losses['train']:.4f} | tokens/sec ~ {tokens_per_sec:.0f}")
+            t0 = time.time()
+
+        lr = get_lr(iter_num)
+        for pg in optimizer.param_groups:
+            pg['lr'] = lr
+
+        xb, yb = get_batch('train')
+        optimizer.zero_grad(set_to_none=True)
+        if USE_AMP and DEVICE.startswith("cuda"):
+            with torch.cuda.amp.autocast():
+                _, loss = model(xb, yb)
+            scaler.scale(loss).backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP_GRAD)
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            _, loss = model(xb, yb)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP_GRAD)
+            optimizer.step()
+
+        if ema:
+            ema.update(model)
+
+        if (iter_num + 1) % (EVAL_INTERVAL * 2) == 0 or iter_num == MAX_ITERS - 1:
+            save_checkpoint(model, optimizer, scaler, ema, iter_num + 1)
+
+    print("Training finished.\n")
+
+    # --- Generation demo ---
+    print("Generating text...")
+    context = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)  # start token: 0 byte
+    gen_model = model
+    if ema and ema.shadow:
+        gen_model = LanguageModel().to(DEVICE)
+        gen_model.load_state_dict(model.state_dict())
+        ema.apply_to(gen_model)
+
+    gen = gen_model.generate(context, max_new_tokens=1000,
+                             temperature=SAMPLE_TEMPERATURE, top_k=SAMPLE_TOP_K,
+                             top_p=SAMPLE_TOP_P)[0].tolist()
+    out = decode_bytes(gen)
+    print(out.decode('utf-8', errors='replace'))
+
+if __name__ == "__main__":
+    main()
