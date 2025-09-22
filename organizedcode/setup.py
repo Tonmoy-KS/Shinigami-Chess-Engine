@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="shinigami-chess-engine",
     version="1.18.5",
-    description="Shinigami Chess engine is a UX-focused chess engine in python for the goal of teaching developers the basics of modern chess engine architecture. ",
+    description="Shinigami Chess engine is a UX-focused chess engine in python for the goal of teaching beginner to intermediate developers the basics of modern chess engine architecture. ",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author="Tonmoy KS",
