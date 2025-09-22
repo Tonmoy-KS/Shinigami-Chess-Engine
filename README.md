@@ -1,11 +1,15 @@
+
+# Shinigami Chess Engine
+
 ---
 
-# Shinigami Chess Engine (V.1.18.5 – Gen 2 Edition)
 
 ![Shinigami Engine Logo](https://raw.githubusercontent.com/Tonmoy-KS/Shinigami-Chess-Engine/main/organizedcode/assets/file_00000000997061fab3e884fe1f6f002d_Shinigami_Logo.png)
+#### Shinigami Chess Engine 
 
 ---
-info:
+
+## Shinigami Chess Engine (V.1.18.5 – Gen 2 Edition)
 
 ![MIT License](https://img.shields.io/badge/license-MIT-FF4136?labelColor=gray)
 ![Python](https://img.shields.io/badge/language-Python_3.8+-2ECC40?labelColor=gray)
