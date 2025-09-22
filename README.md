@@ -115,10 +115,10 @@ Game statistics, self-play, and learning data are logged via cProfile and Loggin
 - **god-of-death:** near Grandmaster
 - **puzzle:** Tactical puzzle mode
 
-### Experimental/Jokes
-- **masochist:** Insane mode
-- **dialing-satan-s-number:** Meme mode
-- **the-big-bang:** God mode
+### Experimental
+- **masochist:** unpractical 
+- **dialing-satan-s-number:** insane
+- **the-big-bang:** hyperbolic
 
 ---
 
@@ -183,7 +183,11 @@ Pull requests, feature ideas, and code reviews are welcome! For major contributi
 
 ## Contact
 
-GitHub: [Tonmoy-KS](https://github.com/Tonmoy-KS)
+**GitHub**: *[Tonmoy-KS](https://github.com/Tonmoy-KS)*
+
+or…
+
+**Discord Server**: *[Shinigami Chess Engine Community](https://discord.gg/n6V9DKE4)*
 
 ---
 
