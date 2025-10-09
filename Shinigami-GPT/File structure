@@ -1,0 +1,13 @@
+/Shinigami-GPT
+|-- .pre-commit-config.yaml  
+|-- config.yaml              
+|-- config.py                
+|-- model.py                 
+|-- train.py                 
+|-- utils.py                 
+|-- generate.py              
+|-- evaluate.py              
+|-- export_onnx.py           
+|-- train_tokenizer.py       
+|-- requirements.txt         
+|-- input.txt
