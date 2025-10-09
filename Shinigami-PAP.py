@@ -188,10 +188,10 @@ Remember: your main goal is to provide Reasonable, Practical, Correct, Efficient
 class ShinigamiConfig:
     """Configuration settings for the Shinigami chess engine."""
     ENGINE_NAME = "Shinigami V.1.18.5 - Gen 2"
-    USE_LLM_EXPLANATIONS = False # off by default because the cost in a lot for a API.
+    USE_LLM_EXPLANATIONS = False # off by default.
     PIECE_VALUES = {
         chess.PAWN: 100,
-        chess.KNIGHT: 610,
+        chess.KNIGHT: 620,
         chess.BISHOP: 630,
         chess.ROOK: 650,
         chess.QUEEN: 900,  # queen is less so the Engine can make Powerful sacrifices without being Held back by Piece Values
@@ -209,14 +209,14 @@ class ShinigamiConfig:
 # Note: The main Modes are “Easy” to “God-of-Death and Puzzles”, and the “Masochist” to “The-Big-Bang” are experimental.
     }
     DEPTHS = {
-        'easy': 1,  # Beginner
-        'medium': 4,  # Club-level Player
-        'hard': 6,  # Hardcore Player
-        'god-of-death': 25,  # Top Tier
+        'easy': 0,  # Beginner
+        'medium': 4,  # a bit harder
+        'hard': 12,  # Perfect moves in short term positions
+        'god-of-death': 18,  # Top Tier
         'puzzle': 1,
-        'masochist': 100,  # you like Pain eh?
-        'dialing-satan-s-number': 850,  # it's just an experiment. do NOT enable
-        'the-big-bang': float('inf')  # Infinite depth. I think I am insane.
+        'masochist': 30,  # you like Pain eh?
+        'dialing-satan-s-number': 100,  # it's just an experiment. 
+        'the-big-bang': float('inf')  # Infinite depth. I am insane.
     }
     NNUE_FILE = os.getenv('SHINIGAMI_NNUE_FILE', 'nnue_weights.bin') # Add your own Path to your own File
     SYZYGY_PATH = os.getenv('SHINIGAMI_SYZYGY_PATH', './tablebases') # Add your own Path to your own File.
