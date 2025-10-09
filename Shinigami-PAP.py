@@ -93,7 +93,7 @@ logging.basicConfig(
 class LLMContext:
     """
     Encapsulate all necessary context for the LLM into a single data structure.
-    ""”
+    """
     def __init__(self,
                  fen: str,
                  my_move: chess.Move,
