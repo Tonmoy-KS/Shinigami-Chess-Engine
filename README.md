@@ -96,6 +96,7 @@ Game statistics, self-play, and learning data are logged via cProfile and Loggin
 - Uses OpenAI API (set `OPENAI_API_KEY` environment variable).
 - Optional, can be enabled/disabled at runtime.
 - Provides witty, in-character commentary on engine moves.
+- Custom Large Language Model In development.
 
 ---
 
@@ -103,9 +104,9 @@ Game statistics, self-play, and learning data are logged via cProfile and Loggin
 
 ### Official
 - **easy:** Beginner
-- **medium:** Club-level
-- **hard:** Strong player
-- **god-of-death:** near Grandmaster
+- **medium:** Strong 
+- **hard:** Near Perfection
+- **god-of-death:** Perfect
 - **puzzle:** Tactical puzzle mode
 
 ### Experimental
@@ -144,16 +145,12 @@ Game statistics, self-play, and learning data are logged via cProfile and Loggin
 9. **What about system requirements for extreme modes?**  
   A: Use first five modes are Official modes that are Stable; the other modes are just experiments.
 
-10. **Can I customize the playing style (aggressive, positional)?**  
-   A: Not currently. planned for future updates.
-
 ---
 
 ## License
 
 **License:** MIT  
 **Credit:** Tonmoy-KS  
-Do not claim as your own; fork, mod, and contribute instead!
 
 ---
 
@@ -178,12 +175,10 @@ Pull requests, feature ideas, and code reviews are welcome! For major contributi
 
 **GitHub**: *[Tonmoy-KS](https://github.com/Tonmoy-KS)*
 
-or…
-
 **Discord Server**: *[Shinigami Chess Engine Community](https://discord.gg/n6V9DKE4)*
 
 ---
 
-*Happy reaping in 64 squares!* — Bye
+*Happy reaping in 64 squares!*
 
 ---
