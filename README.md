@@ -12,14 +12,6 @@ _A UX-focused chess engine for the goal of teaching beginner to intermediate dev
 
 ---
 
-## 🚀 Latest Updates (V.1.18.5)
-- **Enhanced Evaluation:**  
-  - King safety, pawn structure, mobility, outpost, bishop pair, rook/queen evaluation refined.
-- **Logging:** Cleaner, more informative logs for games, search, and training.
-- **Debug:** Fixed a Lot of Bugs and made the code more cleaner and organized.
-
----
-
 ## Features
 
 
@@ -31,14 +23,15 @@ _A UX-focused chess engine for the goal of teaching beginner to intermediate dev
 - **Genetic Feature Engineering:** DEAP-powered auto-tuning for piece values and tables.
 - **Self-Play & Training:** Generates and learns from games, retrains NNUE and policy networks.
 - **Dynamic Opening Book:** Adapts with self-play and opponent moves, prunes weak lines.
-- **Full UCI Protocol:** Full UCI compliance.
 - **Opponent Learning:** Adapts to your style, learning openings and move qualities.
 - **Puzzle Generator:** Built-in tactical puzzles and board tasks.
 - **GUI & Console:** Tkinter GUI or classic terminal mode.
 - **UCI Protocol:** Plug into chess GUIs (Arena, CuteChess, etc.).
 - **Trash Talk Engine:** Witty, customizable, optionally brutal commentary.
-- **LLM Explanations:** In-character move explanations via OpenAI API (optional).
+- **LLM Explanations:** In-character move explanations via OpenAI API.
 - **Extreme Difficulty Modes:** From beginner to "The Big Bang" 
+- **Custom Large Language Model:** In development.
+- **Robust Classical Evaluation:** King safety, pawn structure, mobility, outpost, bishop pair, rook/queen evaluation, passed pawn detection etc. and searches powered by q-search, NMP, MVV-LVA,LMR, etc.
 
 ---
 
@@ -47,7 +40,7 @@ _A UX-focused chess engine for the goal of teaching beginner to intermediate dev
 **Clone the Repository:**
 ```bash
 git clone https://github.com/Tonmoy-KS/Shinigami-Chess-Engine
-cd Shinigami-Chess-Engine
+cd Shinigami-PAP
 ```
 
 **Install Dependencies:**
@@ -67,27 +60,27 @@ pip install -r requirements.txt
 
 **Console Mode:**
 ```bash
-python3 Shinigami PAP
+python3 Shinigami-PAP
 ```
 
 **GUI Mode:**
 ```bash
-python3 Shinigami PAP --gui
+python3 Shinigami-PAP --gui
 ```
 
 **Self-Play & Training:**
 ```bash
-python3 Shinigami --self-play 100
+python3 Shinigami-PAP --self-play 100
 ```
 
 **Custom Paths & Cores:**
 ```bash
-python3 Main_Code_1 --cores 4 --nnue-file /path/to/my_nnue.bin --syzygy-path /path/to/my_tablebases
+python3 Shinigami-PAP --cores 4 --nnue-file /path/to/my_nnue.bin --syzygy-path /path/to/my_tablebases
 ```
 
 **UCI Protocol (for chess GUIs):**
 ```bash
-python3 Shinigami PAP --uci
+python3 Shinigami-PAP --uci
 ```
 
 ---
