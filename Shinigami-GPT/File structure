@@ -1,13 +1,16 @@
 /Shinigami-GPT
-|-- .pre-commit-config.yaml  
-|-- config.yaml              
-|-- config.py                
-|-- model.py                 
-|-- train.py                 
-|-- utils.py                 
-|-- generate.py              
-|-- evaluate.py              
-|-- export_onnx.py           
-|-- train_tokenizer.py       
-|-- requirements.txt         
+|-- .pre-commit-config.yaml
+|-- config.yaml
+|-- config.py
+|-- model.py
+|-- kernels.py               # New: Custom Triton kernels
+|-- train.py
+|-- utils.py
+|-- generate.py
+|-- evaluate.py
+|-- export_onnx.py
+|-- train_tokenizer.py
+|-- convert_deepspeed_checkpoint.py # New: Utility for inference
+|-- requirements.txt
 |-- input.txt
+|-- GPT-README.md
