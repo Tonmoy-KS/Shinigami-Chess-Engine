@@ -1,0 +1,11 @@
+# requirements.txt
+torch
+tokenizers
+transformers
+wandb
+einops
+scipy
+pyyaml              # For reading config.yaml
+numpy               # For memmap dataset
+# For Flash Attention 2, install separately for your CUDA version
+# pip install flash-attn --no-build-isolation
