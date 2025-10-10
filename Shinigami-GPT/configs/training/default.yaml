@@ -1,0 +1,14 @@
+# Training and Fine-tuning Parameters
+global_batch_size: 128
+micro_batch_size: 8
+max_iters: 5000
+clip_grad: 1.0
+
+# Evaluation
+evaluation_interval: 250
+evaluation_iters: 200
+
+# Checkpointing
+checkpoint_dir: "out/checkpoints"
+# Set to a DeepSpeed checkpoint dir to resume, e.g., "out/checkpoints/pretrain-Shinigami-768M/latest"
+resume_from_ckpt: null
