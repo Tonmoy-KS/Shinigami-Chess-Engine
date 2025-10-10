@@ -1,0 +1,6 @@
+# Pre-training data
+tokenizer_path: "bpe_tokenizer.json"
+dataset_path: "input.txt"
+
+# Supervised Fine-tuning (SFT) data
+sft_dataset_path: "sft_data.jsonl"
