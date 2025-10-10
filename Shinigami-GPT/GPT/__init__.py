@@ -1,0 +1,1 @@
+# This file makes shinigami a Python package.
