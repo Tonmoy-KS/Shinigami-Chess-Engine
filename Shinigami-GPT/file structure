@@ -1,0 +1,30 @@
+/Shinigami-GPT
+|-- configs
+|   |-- config.yaml          # Main Hydra config (entry point)
+|   |-- data
+|   |   `-- default.yaml     # Default data paths
+|   |-- deepspeed
+|   |   |-- stage2.json
+|   |   `-- stage3.json
+|   |-- model
+|   |   |-- draft.yaml       # Small draft model arch
+|   |   `-- main.yaml        # Main model arch
+|   `-- training
+|       `-- default.yaml     # Training and fine-tuning params
+|
+|-- GPT              
+|   |-- __init__.py
+|   |-- config.py            # Dataclasses for Hydra
+|   |-- kernels.py           # Triton kernels
+|   |-- model.py             # Model arch with SWA
+|   `-- utils.py             # Data loaders and utilities
+|
+|-- convert_deepspeed_checkpoint.py
+|-- evaluate.py
+|-- finetune_sft.py          # Fine-tuning script
+|-- generate.py
+|-- GPT-README.md
+|-- requirements.txt
+|-- setup.py                 
+|-- train.py                 # Pre-training script
+`-- train_tokenizer.py

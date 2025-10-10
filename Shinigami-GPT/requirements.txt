@@ -1,0 +1,16 @@
+# requirements.txt
+torch
+tokenizers
+transformers
+wandb
+einops
+pyyaml
+numpy
+deepspeed
+hydra-core
+omegaconf
+tqdm
+# For custom GPU kernels on Linux with NVIDIA GPUs (highly recommended)
+# pip install triton
+# For Flash Attention 2 (highly recommended)
+# pip install flash-attn --no-build-isolation
