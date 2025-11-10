@@ -1,6 +1,6 @@
 # Shinigami Chess Engine
 
-![Shinigami Engine Logo](https://raw.githubusercontent.com/Tonmoy-KS/Shinigami-Chess-Engine/main/organizedcode/images/file_00000000997061fab3e884fe1f6f002d_Shinigami_Logo3.png)
+![Shinigami Engine Logo](https://raw.githubusercontent.com/Tonmoy-KS/Shinigami-Chess-Engine/main/assets/images/file_00000000997061fab3e884fe1f6f002d_Shinigami_Logo3.png)
 
 
 ---
